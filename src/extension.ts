@@ -25,6 +25,8 @@ const allBoards: { [key: string]: Board; } = {
     "ATtinyX4": new Board("ATtinyX4", "ATtinyX4-Release", [8])
 };
 
+let status: vscode.StatusBarItem;
+
 //TODO need additional commands for EEPROM & fuses upload (fuses must be defined in workspace settings)
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -45,6 +47,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Set programmer');
     }));
 
+    //TODO improve context status display with several items (board, frequency, port, programmer)
+    // Add context in the status bar
+    status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+    status.text = "No Board";
+    status.tooltip = "FastArduino target board";
+    status.command = "extension.setBoard";
+    status.show();
+
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('make', {
         provideTasks() {
@@ -58,6 +68,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export function deactivate() {
+    status.hide();
+    status.dispose();
 }
 
 // Internal implementation
@@ -110,4 +122,5 @@ async function setBoard(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(config);
     //TODO Store somewhere for use by other commands
     context.workspaceState.update('fastarduino.target', new Target(config));
+    status.text = boardSelection;
 }
