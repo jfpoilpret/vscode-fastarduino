@@ -45,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Set programmer');
     }));
 
-    //TODO register a TaskProvider
+    // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('make', {
         provideTasks() {
             return createTasks(context);
@@ -69,14 +69,29 @@ async function createTasks(context: vscode.ExtensionContext): Promise<vscode.Tas
     
     //TODO Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
-    let task: vscode.Task;
     let command: string = `make CONF=${target.config} `;
 
-    task = new vscode.Task({ type: "fastarduino"}, "FastArduino: build", "fastarduino", new vscode.ShellExecution(command + "build", { cwd: "" }));
-    //TODO need to set problem matcher and presentation...
-    allTasks.push(task);
+    allTasks.push(createTask(command + "build", "build", vscode.TaskGroup.Build, true));
 
     return allTasks;
+}
+
+function createTask(command: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
+    // Create task invoking make command in the right directory and using the right problem matcher
+    let task = new vscode.Task( { type: "fastarduino" }, 
+                                "FastArduino: " + label, 
+                                "fastarduino", 
+                                //TODO set CWD properly
+                                new vscode.ShellExecution(command, { cwd: "" }), 
+                                matcher ? ["$avrgcc"] : []);
+    // Also set group and presentation
+    if (group) {
+        task.group = group;
+    }
+    task.presentationOptions = {echo: true, reveal: vscode.TaskRevealKind.Always, focus: false, panel: vscode.TaskPanelKind.Shared};
+    //TODO check what value we should set here
+    // task.isBackground = true;
+    return task;
 }
 
 async function setBoard(context: vscode.ExtensionContext) {

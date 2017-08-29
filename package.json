@@ -1,5 +1,5 @@
 {
-    "name": "vscode-fastarduino",
+    "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
     "version": "0.0.1",
@@ -15,18 +15,34 @@
     ],
     "main": "./out/src/extension",
     "contributes": {
-        "commands": [{
-            "command": "extension.setBoard",
-            "title": "FastArduino: set target board"
-        },
-        {
-            "command": "extension.setSerial",
-            "title": "FastArduino: set board serial device"
-        },
-        {
-            "command": "extension.setProgrammer",
-            "title": "FastArduino: set programmer to use for target"
-        }
+        "commands": [
+            {
+                "command": "extension.setBoard",
+                "title": "FastArduino: set target board"
+            },
+            {
+                "command": "extension.setSerial",
+                "title": "FastArduino: set board serial device"
+            },
+            {
+                "command": "extension.setProgrammer",
+                "title": "FastArduino: set programmer to use for target"
+            }
+        ],
+        "problemMatchers": [
+            {
+                "name": "avrgcc",
+                "owner": "fastarduino",
+                "fileLocation": ["relative", "${fileDirname}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
         ]
     },
     "scripts": {
