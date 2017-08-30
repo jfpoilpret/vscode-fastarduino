@@ -99,9 +99,7 @@ async function createTasks(context: vscode.ExtensionContext): Promise<vscode.Tas
     let makefileDir: string = "";
     if (vscode.workspace.workspaceFolders && vscode.window.activeTextEditor) {
         const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        // vscode.window.showInformationMessage('Current folder path: ' + currentFolder);
         const currentDocument: string = vscode.window.activeTextEditor.document.fileName;
-        // vscode.window.showInformationMessage('Current open document path: ' + currentDocument);
         // Search the last directory (between folder root and current document directory) containing Makefile
         let dirs: string[] = currentDocument.split("/");
         do {
@@ -162,7 +160,6 @@ async function setBoard(context: vscode.ExtensionContext) {
         //TODO improve setup of config to ensure frequency is added at the right palce i.e. inside config string...
         config = config.replace("%{FREQ}", frequencySelection);
     }
-    vscode.window.showInformationMessage(config);
     //TODO Store somewhere for use by other commands
     context.workspaceState.update('fastarduino.target', new Target(config));
     boardStatus.text = boardSelection;
