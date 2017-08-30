@@ -2,6 +2,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 
 // Internal structure holding important definitions for one board
 //TODO for new Makefile, we'll need more stuuf here (variant, mcu, arch, freq, default programmer...)
@@ -25,7 +26,11 @@ const allBoards: { [key: string]: Board; } = {
     "ATtinyX4": new Board("ATtinyX4", "ATtinyX4-Release", [8])
 };
 
-let status: vscode.StatusBarItem;
+// Status items in status bar
+let boardStatus: vscode.StatusBarItem;
+let frequencyStatus: vscode.StatusBarItem;
+let portStatus: vscode.StatusBarItem;
+let programmerStatus: vscode.StatusBarItem;
 
 //TODO need additional commands for EEPROM & fuses upload (fuses must be defined in workspace settings)
 // this method is called when your extension is activated
@@ -49,12 +54,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     //TODO improve context status display with several items (board, frequency, port, programmer)
     // Add context in the status bar
-    status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-    status.text = "No Board";
-    status.tooltip = "FastArduino target board";
-    status.command = "extension.setBoard";
-    status.show();
-
+    boardStatus = createStatus("No board", "FastArduino target board", "extension.setBoard");
+    frequencyStatus = createStatus("-", "FastArduino target frequency", null);
+    portStatus = createStatus("No serial port", "FastArduino serial port", "extension.setSerial");
+    programmerStatus = createStatus("No programmer", "FastArduino programmer", "extension.setProgrammer");
+    
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('make', {
         provideTasks() {
@@ -68,20 +72,59 @@ export function activate(context: vscode.ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export function deactivate() {
-    status.hide();
-    status.dispose();
+    disposeStatus(boardStatus);
+    disposeStatus(frequencyStatus);
+    disposeStatus(portStatus);
+    disposeStatus(programmerStatus);
 }
 
 // Internal implementation
 //=========================
+function createStatus(text: string, tooltip: string, command: string): vscode.StatusBarItem {
+    let status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+    status.text = text;
+    status.tooltip = tooltip;
+    status.command = command;
+    status.show();
+    return status;
+}
+
+function disposeStatus(status: vscode.StatusBarItem) {
+    status.hide();
+    status.dispose();
+}
+
 async function createTasks(context: vscode.ExtensionContext): Promise<vscode.Task[]> {
-    //TODO Check current directory has a Makefile
+    // Check current directory has a Makefile
+    let makefileDir: string = "";
+    if (vscode.workspace.workspaceFolders && vscode.window.activeTextEditor) {
+        const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        // vscode.window.showInformationMessage('Current folder path: ' + currentFolder);
+        const currentDocument: string = vscode.window.activeTextEditor.document.fileName;
+        // vscode.window.showInformationMessage('Current open document path: ' + currentDocument);
+        // Search the last directory (between folder root and current document directory) containing Makefile
+        let dirs: string[] = currentDocument.split("/");
+        do {
+            // Remove last path part
+            dirs.pop();
+            let path: string = dirs.join("/");
+            // Check if current path contains a Makefile
+            if (fs.existsSync(path + "/Makefile")) {
+                makefileDir = path;
+                break;
+            }
+        } while (dirs.length);
+        if (!makefileDir) {
+            return [];
+        }
+    }
+    
     //TODO Get current target, serial...
     const target: Target = context.workspaceState.get('fastarduino.target');
     
     //TODO Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
-    let command: string = `make CONF=${target.config} `;
+    let command: string = `make CONF=${target.config} -C ${makefileDir} `;
 
     allTasks.push(createTask(command + "build", "build", vscode.TaskGroup.Build, true));
 
@@ -122,5 +165,5 @@ async function setBoard(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(config);
     //TODO Store somewhere for use by other commands
     context.workspaceState.update('fastarduino.target', new Target(config));
-    status.text = boardSelection;
+    boardStatus.text = boardSelection;
 }
