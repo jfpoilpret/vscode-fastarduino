@@ -40,24 +40,24 @@ export function activate(context: vscode.ExtensionContext) {
     //TODO use user-defined workspace settings for defaults?
 
     // Register all commands
-    context.subscriptions.push(vscode.commands.registerCommand('extension.setBoard', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setBoard', () => {
         setBoard(context);
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('extension.setSerial', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setSerial', () => {
         // TODO
         vscode.window.showInformationMessage('Set serial');
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('extension.setProgrammer', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setProgrammer', () => {
         // TODO
         vscode.window.showInformationMessage('Set programmer');
     }));
 
     //TODO improve context status display with several items (board, frequency, port, programmer)
     // Add context in the status bar
-    boardStatus = createStatus("No board", "FastArduino target board", "extension.setBoard");
+    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard");
     frequencyStatus = createStatus("-", "FastArduino target frequency", null);
-    portStatus = createStatus("No serial port", "FastArduino serial port", "extension.setSerial");
-    programmerStatus = createStatus("No programmer", "FastArduino programmer", "extension.setProgrammer");
+    portStatus = createStatus("No serial port", "FastArduino serial port", "fastarduino.setSerial");
+    programmerStatus = createStatus("No programmer", "FastArduino programmer", "fastarduino.setProgrammer");
     
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('make', {
@@ -131,9 +131,9 @@ async function createTasks(context: vscode.ExtensionContext): Promise<vscode.Tas
 
 function createTask(command: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
     // Create task invoking make command in the right directory and using the right problem matcher
-    let task = new vscode.Task( { type: "fastarduino" }, 
-                                "FastArduino: " + label, 
-                                "fastarduino", 
+    let task = new vscode.Task( { type: "FastArduino" }, 
+                                label, 
+                                "FastArduino", 
                                 //TODO set CWD properly
                                 new vscode.ShellExecution(command, { cwd: "" }), 
                                 matcher ? ["$avrgcc"] : []);

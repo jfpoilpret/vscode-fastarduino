@@ -17,15 +17,15 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.setBoard",
+                "command": "fastarduino.setBoard",
                 "title": "FastArduino: set target board"
             },
             {
-                "command": "extension.setSerial",
+                "command": "fastarduino.setSerial",
                 "title": "FastArduino: set board serial device"
             },
             {
-                "command": "extension.setProgrammer",
+                "command": "fastarduino.setProgrammer",
                 "title": "FastArduino: set programmer to use for target"
             }
         ],
