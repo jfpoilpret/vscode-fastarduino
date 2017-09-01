@@ -15,6 +15,70 @@
     ],
     "main": "./out/src/fastarduino",
     "contributes": {
+        "configuration": {
+            "title": "FastArduino Defaults",
+            "type": "object",
+            "properties": {
+                "fastarduino.listedBoards": {
+                    "description": "List of Targets (Board or MCU).",
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "board": {
+                                "description": "Target (Board or MCU) to list as available.",
+                                "type": "string",
+                                "enum": [
+                                    "Arduino UNO",
+                                    "Arduino NANO",
+                                    "Arduino LEONARDO",
+                                    "Arduino MEGA",
+                                    "ATmega328",
+                                    "ATtinyX4"
+                                ]
+                            },
+                            "frequency": {
+                                "description": "Frequency of Target (MCU only).",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                            },
+                            "programmer": {
+                                "description": "Programmer used to upload to Target (Board or MCU).",
+                                "type": "string",
+                                "enum": [
+                                    "UNO USB",
+                                    "NANO USB",
+                                    "LEONARDOO USB",
+                                    "MEGA USB",
+                                    "ArduinoISP.cc",
+                                    "ISP Shield"
+                                ]
+                            },
+                            "serial": {
+                                "description": "Default Serial Device to use for this Programmer.",
+                                "type": "string",
+                                "pattern": "^/dev/tty[A-Z0-9]+$"
+                            }
+                        },
+                        "required": ["board"]
+                    }
+                },
+                "fastarduino.defaultBoard": {
+                    "description": "Target (Board or MCU) used by default in Workspace. Must be one of Targets enumerated in 'fastarduino.listedBoards'",
+                    "type": "string",
+                    "enum": [
+                        "Arduino UNO",
+                        "Arduino NANO",
+                        "Arduino LEONARDO",
+                        "Arduino MEGA",
+                        "ATmega328",
+                        "ATtinyX4"
+                    ]
+                }
+            }
+        },
         "commands": [
             {
                 "command": "fastarduino.setBoard",

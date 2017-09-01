@@ -172,6 +172,7 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
     return task;
 }
 
+//FIXME this function is async hence returns a Prmise (on nothing...) which gonna be rejected... => messages in debug console...
 async function setBoard(context: vscode.ExtensionContext) {
     // Ask user to pick one target
     const boardSelection = await vscode.window.showQuickPick(Object.keys(allBoards), { placeHolder: "Select Target Board or MCU" });
@@ -195,6 +196,7 @@ async function setBoard(context: vscode.ExtensionContext) {
     }
 }
 
+//FIXME this function is async hence returns a Prmise (on nothing...) which gonna be rejected... => messages in debug console...
 async function setProgrammer(context: vscode.ExtensionContext) {
     // Search list of available programmers for current board (empty if no board selected)
     const target: TargetBoard = context.workspaceState.get('fastarduino.target');
