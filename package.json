@@ -21,10 +21,6 @@
                 "title": "FastArduino: set target board"
             },
             {
-                "command": "fastarduino.setSerial",
-                "title": "FastArduino: set board serial device"
-            },
-            {
                 "command": "fastarduino.setProgrammer",
                 "title": "FastArduino: set programmer to use for target"
             }

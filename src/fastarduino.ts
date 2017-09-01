@@ -47,35 +47,24 @@ class TargetProgrammer {
 
 // Status items in status bar
 let boardStatus: vscode.StatusBarItem;
-let frequencyStatus: vscode.StatusBarItem;
-let portStatus: vscode.StatusBarItem;
 let programmerStatus: vscode.StatusBarItem;
 
-//TODO need additional commands for EEPROM & fuses upload (fuses must be defined in workspace settings)
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     //TODO initialize defaults (target, serial, programmer...)
     //TODO use user-defined workspace settings for defaults?
 
-    //TODO keep only 2 commands
     // Register all commands
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setBoard', () => {
         setBoard(context);
-    }));
-    context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setSerial', () => {
-        // TODO remove
-        vscode.window.showInformationMessage('Set serial');
     }));
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setProgrammer', () => {
         setProgrammer(context);
     }));
 
-    //TODO improve context status display with only 2 items (board/frequency, programmer/port)
     // Add context in the status bar
-    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard", 3);
-    frequencyStatus = createStatus("-", "FastArduino target frequency", null, 2);
-    portStatus = createStatus("No serial port", "FastArduino serial port", "fastarduino.setSerial", 1);
+    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard", 1);
     programmerStatus = createStatus("No programmer", "FastArduino programmer", "fastarduino.setProgrammer", 0);
     
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
@@ -92,8 +81,6 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {
     disposeStatus(boardStatus);
-    disposeStatus(frequencyStatus);
-    disposeStatus(portStatus);
     disposeStatus(programmerStatus);
 }
 
@@ -172,16 +159,21 @@ async function setBoard(context: vscode.ExtensionContext) {
     const board = allBoards[boardSelection];
     let config = board.config;
     // Ask for frequency if not fixed
+    let frequency: string;
     if (board.frequency.length > 1) {
         let listFrequencies: string[] = board.frequency.map<string>((f: number) => { return f.toString() + "MHz"});
-        const frequencySelection = await vscode.window.showQuickPick(listFrequencies, { placeHolder: "Select target MCU frequency" });
-        vscode.window.showInformationMessage(frequencySelection);
+        frequency = await vscode.window.showQuickPick(listFrequencies, { placeHolder: "Select target MCU frequency" });
+        vscode.window.showInformationMessage(frequency);
         //TODO improve setup of config to ensure frequency is added at the right palce i.e. inside config string...
-        config = config.replace("%{FREQ}", frequencySelection);
+        config = config.replace("%{FREQ}", frequency);
     }
-    //TODO Store somewhere for use by other commands
+    // Store somewhere for use by other commands
     context.workspaceState.update('fastarduino.target', new TargetBoard(boardSelection, config));
-    boardStatus.text = boardSelection;
+    if (frequency) {
+        boardStatus.text = boardSelection + " (" + frequency + ")";
+    } else {
+        boardStatus.text = boardSelection;
+    }
 }
 
 async function setProgrammer(context: vscode.ExtensionContext) {
@@ -201,15 +193,17 @@ async function setProgrammer(context: vscode.ExtensionContext) {
         // Ask user to pick serial port if programmer needs 1 or more
         let serial: string;
         if (programmer.serials > 0) {
-            //TODO
             serial = await vscode.window.showInputBox({
-                prompt: "Enter srial device:",
+                prompt: "Enter serial device:",
                 value: "/dev/ttyACM0",
                 valueSelection: [8,12]
             });
         }
         context.workspaceState.update('fastarduino.programmer', new TargetProgrammer(programmer.tag, serial ? [serial] : []));
-        programmerStatus.text = programmer.label;
-        portStatus.text = serial ? serial : "";
+        if (serial) {
+            programmerStatus.text = programmer.label + " (" + serial + ")";
+        } else {
+            programmerStatus.text = programmer.label;
+        }
     }
 }
