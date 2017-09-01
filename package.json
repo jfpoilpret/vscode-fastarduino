@@ -13,7 +13,7 @@
     "activationEvents": [
         "workspaceContains:Makefile-FastArduino.mk"
     ],
-    "main": "./out/src/extension",
+    "main": "./out/src/fastarduino",
     "contributes": {
         "commands": [
             {

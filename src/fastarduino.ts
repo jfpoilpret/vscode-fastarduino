@@ -54,10 +54,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     //TODO improve context status display with several items (board, frequency, port, programmer)
     // Add context in the status bar
-    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard");
-    frequencyStatus = createStatus("-", "FastArduino target frequency", null);
-    portStatus = createStatus("No serial port", "FastArduino serial port", "fastarduino.setSerial");
-    programmerStatus = createStatus("No programmer", "FastArduino programmer", "fastarduino.setProgrammer");
+    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard", 3);
+    frequencyStatus = createStatus("-", "FastArduino target frequency", null, 2);
+    portStatus = createStatus("No serial port", "FastArduino serial port", "fastarduino.setSerial", 1);
+    programmerStatus = createStatus("No programmer", "FastArduino programmer", "fastarduino.setProgrammer", 0);
     
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('make', {
@@ -80,8 +80,8 @@ export function deactivate() {
 
 // Internal implementation
 //=========================
-function createStatus(text: string, tooltip: string, command: string): vscode.StatusBarItem {
-    let status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+function createStatus(text: string, tooltip: string, command: string, priority: number): vscode.StatusBarItem {
+    let status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
     status.text = text;
     status.tooltip = tooltip;
     status.command = command;
