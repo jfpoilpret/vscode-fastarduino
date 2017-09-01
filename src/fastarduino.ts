@@ -64,8 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     // Add context in the status bar
-    boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard", 1);
-    programmerStatus = createStatus("No programmer", "FastArduino programmer", "fastarduino.setProgrammer", 0);
+    boardStatus = createStatus("No Board", "Select FastArduino Target Board", "fastarduino.setBoard", 1);
+    programmerStatus = createStatus("No Programmer", "Select FastArduino Programmer", "fastarduino.setProgrammer", 0);
     
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('fastarduino', {
@@ -130,17 +130,17 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
     let command: string = `make CONF=${target.config} -C ${makefileDir} `;
-    allTasks.push(createTask(command + "build", "build", vscode.TaskGroup.Build, true));
-    allTasks.push(createTask(command + "clean", "clean", vscode.TaskGroup.Clean, false));
+    allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
+    allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
     if (programmer) {
         command = command + `PROGRAMMER=${programmer.tag} `;
         if (programmer.serials) {
             command = command + `COM=${programmer.serials[0]} `;
         }
-        allTasks.push(createTask(command + "flash", "program flash", null, false));
-        allTasks.push(createTask(command + "eeprom", "program eeprom", null, false));
-        allTasks.push(createTask(command + "fuses", "program fuses", null, false));
+        allTasks.push(createTask(command + "flash", "Upload Flash", null, false));
+        allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
+        allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
     }
     
     return allTasks;
@@ -153,13 +153,13 @@ interface FastArduinoTaskDefinition extends vscode.TaskDefinition {
 function createTask(command: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
     // Create specific TaskDefinition
     let definition: FastArduinoTaskDefinition = {
-        type: "fastarduino",
+        type: "FastArduino",
         kind: label
     };
     // Create task invoking make command in the right directory and using the right problem matcher
     let task = new vscode.Task( definition, 
                                 label, 
-                                "fastarduino", 
+                                "FastArduino", 
                                 new vscode.ShellExecution(command), 
                                 matcher ? ["$avrgcc"] : []);
     // Also set group and presentation
@@ -174,14 +174,14 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 
 async function setBoard(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const boardSelection = await vscode.window.showQuickPick(Object.keys(allBoards), { placeHolder: "Select target board or MCU" });
+    const boardSelection = await vscode.window.showQuickPick(Object.keys(allBoards), { placeHolder: "Select Target Board or MCU" });
     const board = allBoards[boardSelection];
     let config = board.config;
     // Ask for frequency if not fixed
     let frequency: string;
     if (board.frequency.length > 1) {
         let listFrequencies: string[] = board.frequency.map<string>((f: number) => { return f.toString() + "MHz"});
-        frequency = await vscode.window.showQuickPick(listFrequencies, { placeHolder: "Select target MCU frequency" });
+        frequency = await vscode.window.showQuickPick(listFrequencies, { placeHolder: "Select Target MCU Frequency" });
         vscode.window.showInformationMessage(frequency);
         //TODO improve setup of config to ensure frequency is added at the right place i.e. inside config string...
         config = config.replace("%{FREQ}", frequency);
@@ -207,13 +207,13 @@ async function setProgrammer(context: vscode.ExtensionContext) {
             }
         }
         // Ask user to pick programmer
-        const programmerSelection = await vscode.window.showQuickPick(programmers, { placeHolder: "Select programmer used for target" });
+        const programmerSelection = await vscode.window.showQuickPick(programmers, { placeHolder: "Select Programmer used for Target" });
         const programmer = allProgrammers[programmerSelection];
         // Ask user to pick serial port if programmer needs 1 or more
         let serial: string;
         if (programmer.serials > 0) {
             serial = await vscode.window.showInputBox({
-                prompt: "Enter serial device:",
+                prompt: "Enter Serial Device:",
                 value: "/dev/ttyACM0",
                 valueSelection: [8,12]
             });
@@ -225,6 +225,6 @@ async function setProgrammer(context: vscode.ExtensionContext) {
             programmerStatus.text = programmer.label;
         }
     } else {
-        vscode.window.showWarningMessage("No target selected! First select a target board or MCU!");
+        vscode.window.showWarningMessage("No Target selected! First Select a Target Board or MCU!");
     }
 }
