@@ -11,9 +11,8 @@ class Board {
     constructor(public readonly label: string, public readonly config: string, public readonly frequency: number[]) {}
 }
 
-// TODO later add more specific stuff here?
-class Target {
-    constructor(public readonly config: string) {}
+class Programmer {
+    constructor(public readonly label: string, public readonly tag: string, public readonly serials: number, public readonly onlyFor?: string) {}
 }
 
 // Internal map of all supported targets
@@ -25,6 +24,26 @@ const allBoards: { [key: string]: Board; } = {
     "ATmega328": new Board("ATmega328", "ATmega328-%{FREQ}-Release", [8,16]),
     "ATtinyX4": new Board("ATtinyX4", "ATtinyX4-Release", [8])
 };
+
+const allProgrammers: { [key: string]: Programmer; } = {
+    "UNO USB": new Programmer("UNO USB", "UNO", 1, "Arduino UNO"),
+    "NANO USB": new Programmer("NANO USB", "NANO", 1, "Arduino NANO"),
+    "LEONARDO USB": new Programmer("LEONARDO USB", "LEONARDO", 2, "Arduino LEONARDO"),
+    "MEGA USB": new Programmer("MEGA USB", "MEGA", 1, "Arduino MEGA"),
+    "ArduinoISP.cc": new Programmer("ArduinoISP.cc", "ISP", 0),
+    // "ArduinoISP.org": new Programmer("ArduinoISP.org", "ISPorg", 0),
+    "ISP Shield": new Programmer("ISP Shield", "SHIELD", 1)
+};
+
+// TODO later add more specific stuff here?
+class TargetBoard {
+    constructor(public readonly label: string, public readonly config: string) {}
+}
+
+// TODO later add more specific stuff here?
+class TargetProgrammer {
+    constructor(public readonly tag: string, public readonly serials: string[]) {}
+}
 
 // Status items in status bar
 let boardStatus: vscode.StatusBarItem;
@@ -44,12 +63,11 @@ export function activate(context: vscode.ExtensionContext) {
         setBoard(context);
     }));
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setSerial', () => {
-        // TODO
+        // TODO remove
         vscode.window.showInformationMessage('Set serial');
     }));
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setProgrammer', () => {
-        // TODO
-        vscode.window.showInformationMessage('Set programmer');
+        setProgrammer(context);
     }));
 
     //TODO improve context status display with several items (board, frequency, port, programmer)
@@ -118,7 +136,7 @@ async function createTasks(context: vscode.ExtensionContext): Promise<vscode.Tas
     }
     
     //TODO Get current target, serial...
-    const target: Target = context.workspaceState.get('fastarduino.target');
+    const target: TargetBoard = context.workspaceState.get('fastarduino.target');
     
     //TODO Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
@@ -161,6 +179,29 @@ async function setBoard(context: vscode.ExtensionContext) {
         config = config.replace("%{FREQ}", frequencySelection);
     }
     //TODO Store somewhere for use by other commands
-    context.workspaceState.update('fastarduino.target', new Target(config));
+    context.workspaceState.update('fastarduino.target', new TargetBoard(boardSelection, config));
     boardStatus.text = boardSelection;
+}
+
+async function setProgrammer(context: vscode.ExtensionContext) {
+    // TODO search list of available programmers for current board (empty if no board selected)
+    const target: TargetBoard = context.workspaceState.get('fastarduino.target');
+    if (target) {
+        let programmers: string[] = [];
+        for (var key in allProgrammers) {
+            let onlyFor = allProgrammers[key].onlyFor;
+            if (onlyFor === undefined || onlyFor === target.label) {
+                programmers.push(key);
+            }
+        }
+        // Ask user to pick programmer
+        const programmerSelection = await vscode.window.showQuickPick(programmers, { placeHolder: "Select programmer used for target" });
+        const programmer = allProgrammers[programmerSelection];
+        // Ask user to pick serial port if programmer needs 1 or more
+        if (programmer.serials > 0) {
+            //TODO
+        }
+        context.workspaceState.update('fastarduino.programmer', new TargetProgrammer(programmer.tag, []));
+        programmerStatus.text = programmer.label;
+    }
 }
