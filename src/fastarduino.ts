@@ -58,6 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
     //TODO initialize defaults (target, serial, programmer...)
     //TODO use user-defined workspace settings for defaults?
 
+    //TODO keep only 2 commands
     // Register all commands
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setBoard', () => {
         setBoard(context);
@@ -70,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
         setProgrammer(context);
     }));
 
-    //TODO improve context status display with several items (board, frequency, port, programmer)
+    //TODO improve context status display with only 2 items (board/frequency, programmer/port)
     // Add context in the status bar
     boardStatus = createStatus("No board", "FastArduino target board", "fastarduino.setBoard", 3);
     frequencyStatus = createStatus("-", "FastArduino target frequency", null, 2);
@@ -198,10 +199,17 @@ async function setProgrammer(context: vscode.ExtensionContext) {
         const programmerSelection = await vscode.window.showQuickPick(programmers, { placeHolder: "Select programmer used for target" });
         const programmer = allProgrammers[programmerSelection];
         // Ask user to pick serial port if programmer needs 1 or more
+        let serial: string;
         if (programmer.serials > 0) {
             //TODO
+            serial = await vscode.window.showInputBox({
+                prompt: "Enter srial device:",
+                value: "/dev/ttyACM0",
+                valueSelection: [8,12]
+            });
         }
-        context.workspaceState.update('fastarduino.programmer', new TargetProgrammer(programmer.tag, []));
+        context.workspaceState.update('fastarduino.programmer', new TargetProgrammer(programmer.tag, serial ? [serial] : []));
         programmerStatus.text = programmer.label;
+        portStatus.text = serial ? serial : "";
     }
 }
