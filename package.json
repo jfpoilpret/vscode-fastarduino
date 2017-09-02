@@ -85,12 +85,8 @@
         },
         "commands": [
             {
-                "command": "fastarduino.setBoard",
-                "title": "FastArduino: Set Target Board"
-            },
-            {
-                "command": "fastarduino.setProgrammer",
-                "title": "FastArduino: Set Programmer to use for Target"
+                "command": "fastarduino.setTarget",
+                "title": "FastArduino: Set Target (Board, Programmer)"
             }
         ],
         "problemMatchers": [
