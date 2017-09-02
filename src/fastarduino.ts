@@ -8,15 +8,22 @@ import * as fs from 'fs';
 //TODO for new Makefile, we'll need more stuff here (variant, mcu, arch, freq, default programmer...)
 //TODO for frequency we need to allow a range e.g. 1-20MHz
 class Board {
-    constructor(public readonly label: string, public readonly config: string, public readonly frequency: number[]) {}
+    constructor(public readonly label: string, 
+                public readonly config: string,
+                public frequency: number[],
+                public programmers?: string[]) {}
 }
 
 class Programmer {
-    constructor(public readonly label: string, public readonly tag: string, public readonly serials: number, public readonly onlyFor?: string) {}
+    constructor(public readonly label: string,
+                public readonly tag: string,
+                public serialsNeeded: number,
+                public onlyFor?: string,
+                public serial?: string) {}
 }
 
-// Internal map of all supported targets
-const allBoards: { [key: string]: Board; } = {
+// Internal map of all supported targets (TODO get it from dedicated json file)
+const ALLBOARDS: { [key: string]: Board; } = {
     "Arduino UNO": new Board("Arduino UNO", "UNO-Release", [16]),
     "Arduino NANO": new Board("Arduino NANO", "NANO-Release", [16]),
     "Arduino LEONARDO": new Board("Arduino LEONARDO", "LEONARDO-Release", [16]),
@@ -25,7 +32,7 @@ const allBoards: { [key: string]: Board; } = {
     "ATtinyX4": new Board("ATtinyX4", "ATtinyX4-Release", [8])
 };
 
-const allProgrammers: { [key: string]: Programmer; } = {
+const ALLPROGRAMMERS: { [key: string]: Programmer; } = {
     "UNO USB": new Programmer("UNO USB", "UNO", 1, "Arduino UNO"),
     "NANO USB": new Programmer("NANO USB", "NANO", 1, "Arduino NANO"),
     "LEONARDO USB": new Programmer("LEONARDO USB", "LEONARDO", 2, "Arduino LEONARDO"),
@@ -35,25 +42,33 @@ const allProgrammers: { [key: string]: Programmer; } = {
     "ISP Shield": new Programmer("ISP Shield", "SHIELD", 1)
 };
 
+let allBoards: { [key: string]: Board; } = {};
+    
 // TODO later add more specific stuff here?
 class TargetBoard {
-    constructor(public readonly label: string, public readonly config: string) {}
+    constructor(public board: string,
+                public config: string,
+                public programmer?: string,
+                public serial?: string) {}
 }
 
 // TODO later add more specific stuff here?
-class TargetProgrammer {
-    constructor(public readonly tag: string, public readonly serials: string[]) {}
-}
+// class TargetProgrammer {
+//     constructor(public programmer: string, public serials: string[]) {}
+// }
 
 // Status items in status bar
 let boardStatus: vscode.StatusBarItem;
 let programmerStatus: vscode.StatusBarItem;
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+// Called when your FastArduino extension is activated (i.e. when current Workspace folder contains Makefile-FastArduino.mk)
 export function activate(context: vscode.ExtensionContext) {
-    //TODO initialize defaults (target, serial, programmer...)
-    //TODO use user-defined workspace settings for defaults?
+    // Finish contruction of boards in ALLBOARDS (add links to programmers)
+    completeBoardsList();
+    // Initialize defaults (target, serial, programmer...)
+    rebuildBoardsAndProgrammersList();
+    // auto-reload if configuration change
+    vscode.workspace.onDidChangeConfiguration(rebuildBoardsAndProgrammersList);
 
     // Register all commands
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setBoard', () => {
@@ -86,6 +101,75 @@ export function deactivate() {
 
 // Internal implementation
 //=========================
+// Add all possible programmers to each board in ALLBOARDS
+function completeBoardsList() {
+    // First list general programmers
+    let generalProgrammers: string[] = [];
+    for (let key in ALLPROGRAMMERS) {
+        if (ALLPROGRAMMERS[key].onlyFor === undefined) {
+            generalProgrammers.push(key);
+        }
+    }
+    for (let key in ALLBOARDS) {
+        ALLBOARDS[key].programmers = [];
+        ALLBOARDS[key].programmers.push(...generalProgrammers);
+    }
+    for (let key in ALLPROGRAMMERS) {
+        let target: string = ALLPROGRAMMERS[key].onlyFor;
+        if (target) {
+            ALLBOARDS[target].programmers.push(key);
+        }
+    }
+}
+
+interface BoardSetting {
+    board: string;
+    frequency?: number[];
+    programmer?: string;
+    serial?: string;
+}
+
+function rebuildBoardsAndProgrammersList() {
+    let errors: string[] = [];
+    const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
+    const listedBoards: BoardSetting[] = settings.get("listedBoards");
+    if (listedBoards.length) {
+        // Then find all boards
+        let boards = listedBoards   .filter((setting: BoardSetting): boolean => ALLBOARDS[setting.board] ? true : false)
+                                    .map(formatBoardSetting);
+        //TODO Include serial too!
+        allBoards = {};
+        boards.forEach((board: Board) => {
+            if (allBoards[board.label]) {
+                // Error in settings!
+                errors.push(`Invalid settings! 'fastarduino.listedBoards' contains more than one entry for board '${board.label}'!`);
+            } else {
+                allBoards[board.label] = board;
+            }
+        });
+    } else {
+        allBoards = ALLBOARDS;
+    }
+    errors.forEach((error) => { vscode.window.showWarningMessage(error); });
+    //TODO Handle default target
+}
+
+function formatBoardSetting(setting: BoardSetting): Board {
+    // Create a new Board based on setting
+    if (ALLBOARDS[setting.board]) {
+        let reference: Board = ALLBOARDS[setting.board];
+        let programmers: string[] = reference.programmers;
+        if (setting.programmer && ALLPROGRAMMERS[setting.programmer]) {
+            programmers = [setting.programmer];
+        }
+        return new Board(   reference.label, 
+                            reference.config, 
+                            setting.frequency !== undefined ? setting.frequency : reference.frequency,
+                            programmers);
+    }
+    return null;
+}
+
 function createStatus(text: string, tooltip: string, command: string, priority: number): vscode.StatusBarItem {
     let status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
     status.text = text;
@@ -125,7 +209,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     
     // Get current target and programmer
     const target: TargetBoard = context.workspaceState.get('fastarduino.target');
-    const programmer: TargetProgrammer = context.workspaceState.get('fastarduino.programmer');
+    // const programmer: TargetProgrammer = context.workspaceState.get('fastarduino.programmer');
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
@@ -133,10 +217,10 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
-    if (programmer) {
-        command = command + `PROGRAMMER=${programmer.tag} `;
-        if (programmer.serials) {
-            command = command + `COM=${programmer.serials[0]} `;
+    if (target.programmer) {
+        command = command + `PROGRAMMER=${target.programmer} `;
+        if (target.serial) {
+            command = command + `COM=${target.serial} `;
         }
         allTasks.push(createTask(command + "flash", "Upload Flash", null, false));
         allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
@@ -201,26 +285,21 @@ async function setProgrammer(context: vscode.ExtensionContext) {
     // Search list of available programmers for current board (empty if no board selected)
     const target: TargetBoard = context.workspaceState.get('fastarduino.target');
     if (target) {
-        let programmers: string[] = [];
-        for (var key in allProgrammers) {
-            let onlyFor = allProgrammers[key].onlyFor;
-            if (onlyFor === undefined || onlyFor === target.label) {
-                programmers.push(key);
-            }
-        }
         // Ask user to pick programmer
-        const programmerSelection = await vscode.window.showQuickPick(programmers, { placeHolder: "Select Programmer used for Target" });
-        const programmer = allProgrammers[programmerSelection];
+        const programmerSelection = await vscode.window.showQuickPick(allBoards[target.board].programmers, { placeHolder: "Select Programmer used for Target" });
+        const programmer = ALLPROGRAMMERS[programmerSelection];
         // Ask user to pick serial port if programmer needs 1 or more
         let serial: string;
-        if (programmer.serials > 0) {
+        if (programmer.serialsNeeded > 0) {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
                 value: "/dev/ttyACM0",
                 valueSelection: [8,12]
             });
         }
-        context.workspaceState.update('fastarduino.programmer', new TargetProgrammer(programmer.tag, serial ? [serial] : []));
+        target.programmer = programmerSelection;
+        target.serial = serial;
+        context.workspaceState.update('fastarduino.target', target);
         if (serial) {
             programmerStatus.text = programmer.label + " (" + serial + ")";
         } else {

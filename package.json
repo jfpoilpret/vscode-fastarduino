@@ -16,7 +16,7 @@
     "main": "./out/src/fastarduino",
     "contributes": {
         "configuration": {
-            "title": "FastArduino Defaults",
+            "title": "FastArduino Configuration",
             "type": "object",
             "properties": {
                 "fastarduino.listedBoards": {
@@ -39,10 +39,14 @@
                                 ]
                             },
                             "frequency": {
-                                "description": "Frequency of Target (MCU only).",
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 20
+                                "description": "Frequencies of Target (MCU only).",
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 20
+                                }
                             },
                             "programmer": {
                                 "description": "Programmer used to upload to Target (Board or MCU).",
