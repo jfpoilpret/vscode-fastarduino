@@ -4,6 +4,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as child_process from 'child_process';
 
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
@@ -269,11 +270,17 @@ async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
     if (programmer.serials > 0) {
-        serial = await vscode.window.showInputBox({
-            prompt: "Enter Serial Device:",
-            value: board.serial ? board.serial : "/dev/ttyACM0",
-            valueSelection: board.serial ? undefined : [8,12]
-        });
+        let devices = await listSerialDevices();
+        if (devices && devices.length > 1) {
+            //TODO set default?
+            serial = await pick("Enter Serial Device:", devices);
+        } else {
+            serial = await vscode.window.showInputBox({
+                prompt: "Enter Serial Device:",
+                value: board.serial ? board.serial : "/dev/ttyACM0",
+                valueSelection: board.serial ? undefined : [8,12]
+            });
+        }
     }
 
     let boardText = `${boardSelection} (${frequency})`;
@@ -295,4 +302,29 @@ async function pick(message: string, labels: string[]) {
     } else {
         return labels[0];
     }
+}
+
+const isLinux = (process.platform === "linux");
+const isMac = (process.platform === "darwin");
+const isWindows = (process.platform === "win32");
+
+async function listSerialDevices(): Promise<string[]> {
+    return new Promise<string[]>((resolve, reject) => {
+        const regex: RegExp = ( isLinux ? /^.*->\s*(.*)$/ :
+                                isMac ? /^(.*)$/ :
+                                /^.*$/);
+        const command: string = (   isLinux ? "ls -l /dev/serial/by-id" :
+                                    isMac ? "ls /dev/{tty,cu}.*" :
+                                    "");
+        child_process.exec(command, (error, stdout, stderr) => {
+            if (!error) {
+                let devices: string[] = stdout  .split("\n")
+                                                .filter((value) => regex.test(value))
+                                                .map((value) => regex.exec(value)[1].replace("../../", "/dev/"));
+                resolve(devices);
+            } else {
+                reject(error.message);
+            }
+        });
+    });
 }
