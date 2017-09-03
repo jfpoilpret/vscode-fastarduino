@@ -1,0 +1,99 @@
+{
+	"boards": [
+		{
+			"name": "Arduino UNO",
+			"config": "UNO-Release",
+			"frequencies": [16],
+			"programmer": "UNO USB",
+			"variant": "ARDUINO_UNO",
+			"mcu": "atmega328p",
+			"arch": "avr5"
+		},
+		{
+			"name": "Arduino NANO",
+			"config": "NANO-Release",
+			"frequencies": [16],
+			"programmer": "NANO USB",
+			"variant": "ARDUINO_NANO",
+			"mcu": "atmega328p",
+			"arch": "avr5"
+		},
+		{
+			"name": "Arduino LEONARDO",
+			"config": "LEONARDO-Release",
+			"frequencies": [16],
+			"programmer": "LEONARDO USB",
+			"variant": "ARDUINO_LEONARDO",
+			"mcu": "atmega32u4",
+			"arch": "avr5"
+		},
+		{
+			"name": "Arduino MEGA",
+			"config": "MEGA-Release",
+			"frequencies": [16],
+			"programmer": "MEGA USB",
+			"variant": "ARDUINO_MEGA",
+			"mcu": "atmega2560",
+			"arch": "avr6"
+		},
+		{
+			"name": "ATmega328",
+			"config": "ATmega328-%{FREQ}-Release",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGA328P",
+			"mcu": "atmega328p",
+			"arch": "avr5"
+		},
+		{
+			"name": "ATtinyX4",
+			"config": "ATtinyX4-%{FREQ}-Release",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGA328P",
+			"mcu": "attiny84",
+			"arch": "avr25"
+		}
+	],
+	"programmers": [
+		{
+			"name": "UNO USB",
+			"tag": "UNO",
+			"option": "-c arduino -b 115200",
+			"serials": 1,
+			"onlyFor": "Arduino UNO"
+		},
+		{
+			"name": "NANO USB",
+			"tag": "NANO",
+			"option": "-c arduino -b 57600",
+			"serials": 1,
+			"onlyFor": "Arduino NANO"
+		},
+		{
+			"name": "LEONARDO USB",
+			"tag": "LEONARDO",
+			"option": "-c avr109 -b 57600",
+			"serials": 2,
+			"onlyFor": "Arduino LEONARDO"
+		},
+		{
+			"name": "MEGA USB",
+			"tag": "MEGA",
+			"option": "-c wiring -b 115200",
+			"serials": 1,
+			"onlyFor": "Arduino MEGA"
+		},
+		{
+			"name": "ISP Shield",
+			"tag": "SHIELD",
+			"option": "-c stk501v1 -b 19200",
+			"serials": 1
+		},
+		{
+			"name": "ArduinoISP.cc",
+			"tag": "ISP",
+			"option": "-c arduinoisp",
+			"serials": 0
+		}
+	]
+}
+

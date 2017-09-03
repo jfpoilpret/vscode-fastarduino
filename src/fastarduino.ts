@@ -58,7 +58,7 @@ let statusFeedback: vscode.StatusBarItem;
 // Called when your FastArduino extension is activated (i.e. when current Workspace folder contains Makefile-FastArduino.mk)
 export function activate(context: vscode.ExtensionContext) {
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
-    completeBoardsList();
+    initBoardsList();
     // Initialize defaults (target, serial, programmer...)
     rebuildBoardsAndProgrammersList();
     // auto-reload if configuration change
@@ -93,7 +93,7 @@ export function deactivate() {
 // Internal implementation
 //=========================
 // Add all possible programmers to each board in ALLBOARDS
-function completeBoardsList() {
+function initBoardsList() {
     // First list general programmers
     let generalProgrammers: string[] = [];
     for (let key in ALLPROGRAMMERS) {

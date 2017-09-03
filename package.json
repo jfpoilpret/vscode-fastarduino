@@ -20,7 +20,7 @@
             "type": "object",
             "properties": {
                 "fastarduino.listedBoards": {
-                    "description": "List of Targets (Board or MCU).",
+                    "description": "List of Targets (Board or MCU). First Target in the list will be the default.",
                     "type": "array",
                     "uniqueItems": true,
                     "items": {
@@ -68,18 +68,6 @@
                         },
                         "required": ["board"]
                     }
-                },
-                "fastarduino.defaultBoard": {
-                    "description": "Target (Board or MCU) used by default in Workspace. Must be one of Targets enumerated in 'fastarduino.listedBoards'",
-                    "type": "string",
-                    "enum": [
-                        "Arduino UNO",
-                        "Arduino NANO",
-                        "Arduino LEONARDO",
-                        "Arduino MEGA",
-                        "ATmega328",
-                        "ATtinyX4"
-                    ]
                 }
             }
         },
