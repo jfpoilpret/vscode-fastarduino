@@ -38,7 +38,7 @@
                                     "ATtinyX4"
                                 ]
                             },
-                            "frequency": {
+                            "frequencies": {
                                 "description": "Frequencies of Target (MCU only).",
                                 "type": "array",
                                 "uniqueItems": true,
