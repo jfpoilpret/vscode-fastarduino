@@ -9,8 +9,17 @@ import * as child_process from 'child_process';
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
 
-// Called when your FastArduino extension is activated (i.e. when current Workspace folder contains Makefile-FastArduino.mk)
+// Called when your FastArduino extension is activated (i.e. when current Workspace folder contains Makefile)
+//TODO There is a risk for activating the extension for other projects not using FastArduino!
+// Hence we should protect against generating tasks for other projects! Maybe check a "flag" file?
 export function activate(context: vscode.ExtensionContext) {
+    // Add context in the status bar
+    statusFeedback = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+    statusFeedback.text = "No Target";
+    statusFeedback.tooltip = "Select FastArduino Target";
+    statusFeedback.command = "fastarduino.setTarget";
+    statusFeedback.show();
+    
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
     initBoardsList(context);
     // Initialize defaults (target, serial, programmer...)
@@ -23,13 +32,6 @@ export function activate(context: vscode.ExtensionContext) {
         setTarget(context);
     }));
 
-    // Add context in the status bar
-    statusFeedback = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-    statusFeedback.text = "No Target";
-    statusFeedback.tooltip = "Select FastArduino Target";
-    statusFeedback.command = "fastarduino.setTarget";
-    statusFeedback.show();
-    
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
     context.subscriptions.push(vscode.workspace.registerTaskProvider('fastarduino', {
         provideTasks() {
@@ -53,7 +55,6 @@ export function deactivate() {
 interface Board {
     // The first part comes from fastarduino.json
     name: string; 
-    config: string;
     frequencies: number[];
     programmer?: string;
     variant: string;
@@ -66,9 +67,10 @@ interface Board {
 
 interface Programmer {
     name: string;
-    tag: string;
     option: string;
     serials: number;
+    canProgramEEPROM: boolean,
+    canProgramFuses: boolean,
     onlyFor?: string;
 }
 
@@ -78,7 +80,7 @@ let ALLPROGRAMMERS: { [key: string]: Programmer; } = {};
 // Altered targets list according to user settings
 let allBoards: { [key: string]: Board; } = {};
 
-// Initialize boards and porgrammers from fastarduino.json
+// Initialize boards and programmers from fastarduino.json (only ocne at activation time)
 function initBoardsList(context: vscode.ExtensionContext) {
     const configFile: string = context.asAbsolutePath("./fastarduino.json");
     let config: { boards: Board[], programmers: Programmer[] } = JSON.parse(fs.readFileSync(configFile).toString());
@@ -107,6 +109,7 @@ function initBoardsList(context: vscode.ExtensionContext) {
     });
 }
 
+// Maps to user settings of board/programmers used by current project
 interface BoardSetting {
     board: string;
     frequencies?: number[];
@@ -114,6 +117,7 @@ interface BoardSetting {
     serial?: string;
 }
 
+// Rebuild list of boards and programmers used for current project (called whenever project configuration change)
 function rebuildBoardsAndProgrammersList() {
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
@@ -135,7 +139,9 @@ function rebuildBoardsAndProgrammersList() {
         allBoards = ALLBOARDS;
     }
     errors.forEach((error) => { vscode.window.showWarningMessage(error); });
+    //TODO Check current target is still available, if not replace it!
     //TODO Handle default target
+    // statusFeedback.text = "No Target";
 }
 
 function formatBoardSetting(setting: BoardSetting): Board {
@@ -148,8 +154,7 @@ function formatBoardSetting(setting: BoardSetting): Board {
         }
         return {
             name: reference.name, 
-            config: reference.config, 
-            frequencies: setting.frequencies !== undefined ? setting.frequencies : reference.frequencies,
+            frequencies: setting.frequencies ? setting.frequencies : reference.frequencies,
             programmer: reference.programmer,
             variant: reference.variant,
             mcu: reference.mcu,
@@ -161,9 +166,10 @@ function formatBoardSetting(setting: BoardSetting): Board {
     return null;
 }
 
+// Current target as selected by user
 interface Target {
     board: string;
-    config: string;
+    frequency: string;
     programmer: string;
     serial?: string;
 }
@@ -194,21 +200,30 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     
     // Get current target and programmer
     const target: Target = context.workspaceState.get('fastarduino.target');
+    const board: Board = allBoards[target.board];
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
-    let command: string = `make CONF=${target.config} -C ${makefileDir} `;
+    // let command: string = `make CONF=${target.config} -C ${makefileDir} `;
+    let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C ${makefileDir} `;
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
     if (target.programmer) {
-        command = command + `PROGRAMMER=${target.programmer} `;
+        const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
+        command = command + 
+            `DUDE_OPTION=${programmer.option} CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
         if (target.serial) {
-            command = command + `COM=${target.serial} `;
+            command = command + `DUDE_SERIAL=${target.serial} `;
         }
+        //TODO Also need to set DUDE_SERIAL_RESET (for LEONARDO)
         allTasks.push(createTask(command + "flash", "Upload Flash", null, false));
-        allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
-        allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
+        if (programmer.canProgramEEPROM) {
+            allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
+        }
+        if (programmer.canProgramFuses) {
+            allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
+        }
     }
     
     return allTasks;
@@ -244,12 +259,14 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
     return task;
 }
 
-//FIXME this function is async hence returns a Prmise (on nothing...) which gonna be rejected... => messages in debug console...
+// This function is called by user in order to set current target (board, frequency, programmer, serial device)
+//FIXME this function is async hence returns a Promise (on nothing...) which gonna be rejected... => messages in debug console...
+//TODO maybe it would be better for user settings to include tags (user defined) each listing a complete configuration (board,frequency,programmer)
+// And only present the list of tags for setting a target (+ serial device if no default)
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const boardSelection = await pick("Select Target Board or MCU", Object.keys(allBoards));
-    const board = allBoards[boardSelection];
-    let config = board.config;
+    const boardSelection: string = await pick("Select Target Board or MCU", Object.keys(allBoards));
+    const board: Board = allBoards[boardSelection];
 
     // Ask for frequency if not fixed
     let frequency: string;
@@ -260,7 +277,6 @@ async function setTarget(context: vscode.ExtensionContext) {
         } else {
             frequency = board.frequencies[0].toString() + "MHz";
         }
-        config = config.replace("%{FREQ}", frequency);
     }
 
     // Ask for programmer if more than one to choose from
@@ -287,13 +303,14 @@ async function setTarget(context: vscode.ExtensionContext) {
     let programmerText = serial ? ` [${programmerSelection} (${serial})]` : ` [${programmerSelection}]`;
     statusFeedback.text = boardText + programmerText;
 
-    // Store somewhere for use by other commands
-    context.workspaceState.update('fastarduino.target', {
+    // Store to workspace state for use by other commands
+    const target: Target = {
         board: boardSelection, 
-        config: config, 
+        frequency: frequency.replace("MHz", "000000UL"),
         programmer: programmer.name, 
         serial: serial
-    });
+    };
+    context.workspaceState.update('fastarduino.target', target);
 }
 
 async function pick(message: string, labels: string[]) {

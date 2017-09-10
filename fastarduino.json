@@ -2,7 +2,6 @@
 	"boards": [
 		{
 			"name": "Arduino UNO",
-			"config": "UNO-Release",
 			"frequencies": [16],
 			"programmer": "UNO USB",
 			"variant": "ARDUINO_UNO",
@@ -11,7 +10,6 @@
 		},
 		{
 			"name": "Arduino NANO",
-			"config": "NANO-Release",
 			"frequencies": [16],
 			"programmer": "NANO USB",
 			"variant": "ARDUINO_NANO",
@@ -20,7 +18,6 @@
 		},
 		{
 			"name": "Arduino LEONARDO",
-			"config": "LEONARDO-Release",
 			"frequencies": [16],
 			"programmer": "LEONARDO USB",
 			"variant": "ARDUINO_LEONARDO",
@@ -29,7 +26,6 @@
 		},
 		{
 			"name": "Arduino MEGA",
-			"config": "MEGA-Release",
 			"frequencies": [16],
 			"programmer": "MEGA USB",
 			"variant": "ARDUINO_MEGA",
@@ -38,7 +34,6 @@
 		},
 		{
 			"name": "ATmega328",
-			"config": "ATmega328-%{FREQ}-Release",
 			"frequencies": [8,16],
 			"variant": "BREADBOARD_ATMEGA328P",
 			"mcu": "atmega328p",
@@ -46,7 +41,6 @@
 		},
 		{
 			"name": "ATtinyX4",
-			"config": "ATtinyX4-%{FREQ}-Release",
 			"frequencies": [8,16],
 			"variant": "BREADBOARD_ATMEGA328P",
 			"mcu": "attiny84",
@@ -56,44 +50,49 @@
 	"programmers": [
 		{
 			"name": "UNO USB",
-			"tag": "UNO",
 			"option": "-c arduino -b 115200",
 			"serials": 1,
+			"canProgramEEPROM": false,
+			"canProgramFuses": false,
 			"onlyFor": "Arduino UNO"
 		},
 		{
 			"name": "NANO USB",
-			"tag": "NANO",
 			"option": "-c arduino -b 57600",
 			"serials": 1,
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
 			"onlyFor": "Arduino NANO"
 		},
 		{
 			"name": "LEONARDO USB",
-			"tag": "LEONARDO",
 			"option": "-c avr109 -b 57600",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
 			"serials": 2,
 			"onlyFor": "Arduino LEONARDO"
 		},
 		{
 			"name": "MEGA USB",
-			"tag": "MEGA",
 			"option": "-c wiring -b 115200",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
 			"serials": 1,
 			"onlyFor": "Arduino MEGA"
 		},
 		{
 			"name": "ISP Shield",
-			"tag": "SHIELD",
 			"option": "-c stk501v1 -b 19200",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
 			"serials": 1
 		},
 		{
 			"name": "ArduinoISP.cc",
-			"tag": "ISP",
 			"option": "-c arduinoisp",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
 			"serials": 0
 		}
 	]
 }
-
