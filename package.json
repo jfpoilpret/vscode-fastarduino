@@ -19,11 +19,30 @@
             "title": "FastArduino Configuration",
             "type": "object",
             "properties": {
-                "fastarduino.listedBoards": {
-                    "description": "List of Targets (Board or MCU). First Target in the list will be the default.",
-                    "type": "array",
-                    "uniqueItems": true,
-                    "items": {
+                "fastarduino.general": {
+                    "type": "object",
+                    "properties": {
+                        "projectType": {
+                            "description": "Type of the project; will determine available tasks.",
+                            "type": "string",
+                            "enum": [
+                                "Application",
+                                "Library"
+                            ],
+                            "default": "Application"
+                        },
+                        "defaultTarget": {
+                            "description": "Default target (selected from fastarduino.targets)",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["defaultTarget"]
+                },
+                "fastarduino.targets": {
+                    "description": "Named Targets (Board or MCU) to be made available.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "description": "Definition of a Target",
                         "type": "object",
                         "properties": {
                             "board": {
@@ -38,15 +57,11 @@
                                     "ATtinyX4"
                                 ]
                             },
-                            "frequencies": {
-                                "description": "Frequencies of Target (MCU only).",
-                                "type": "array",
-                                "uniqueItems": true,
-                                "items": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 20
-                                }
+                            "frequency": {
+                                "description": "Frequency of Target (MCU only).",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
                             },
                             "programmer": {
                                 "description": "Programmer used to upload to Target (Board or MCU).",
@@ -66,7 +81,7 @@
                                 "pattern": "^/dev/tty[A-Z0-9]+$"
                             }
                         },
-                        "required": ["board"]
+                        "required": ["board", "programmer"]
                     }
                 }
             }

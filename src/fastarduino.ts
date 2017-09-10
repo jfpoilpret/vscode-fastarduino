@@ -1,5 +1,7 @@
 'use strict';
 
+//TODO handle default target
+//TODO improve feedback of status bar item: tag name + tooltip?
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
@@ -75,8 +77,10 @@ interface Programmer {
 // Internal map of all supported targets
 let ALLBOARDS: { [key: string]: Board; } = {};
 let ALLPROGRAMMERS: { [key: string]: Programmer; } = {};
-// Altered targets list according to user settings
-let allBoards: { [key: string]: Board; } = {};
+// Targets list according to user settings
+let allTargets: { [key: string]: TargetSetting; } = {};
+// Type of project
+let projectType: string;
 
 // Initialize boards and programmers from fastarduino.json (only ocne at activation time)
 function initBoardsList(context: vscode.ExtensionContext) {
@@ -108,10 +112,15 @@ function initBoardsList(context: vscode.ExtensionContext) {
 }
 
 // Maps to user settings of board/programmers used by current project
-interface BoardSetting {
+interface GeneralSetting {
+    projectType?: string;
+    defaultTarget: string;
+}
+
+interface TargetSetting {
     board: string;
-    frequencies?: number[];
-    programmer?: string;
+    frequency?: number;
+    programmer: string;
     serial?: string;
 }
 
@@ -119,53 +128,55 @@ interface BoardSetting {
 function rebuildBoardsAndProgrammersList() {
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
-    const listedBoards: BoardSetting[] = settings.get("listedBoards");
-    if (listedBoards.length) {
-        // Then find all boards
-        const boards = listedBoards .filter((setting) => ALLBOARDS[setting.board] ? true : false)
-                                    .map(formatBoardSetting);
-        allBoards = {};
-        boards.forEach((board: Board) => {
-            if (allBoards[board.name]) {
-                // Error in settings!
-                errors.push(`Invalid settings! 'fastarduino.listedBoards' contains more than one entry for board '${board.name}'!`);
-            } else {
-                allBoards[board.name] = board;
-            }
-        });
-    } else {
-        allBoards = ALLBOARDS;
-    }
-    errors.forEach((error) => { vscode.window.showWarningMessage(error); });
-    //TODO Check current target is still available, if not replace it!
-    //TODO Handle default target
-    // statusFeedback.text = "No Target";
-}
-
-function formatBoardSetting(setting: BoardSetting): Board {
-    // Create a new Board based on setting
-    if (ALLBOARDS[setting.board]) {
-        const reference: Board = ALLBOARDS[setting.board];
-        let programmers: string[] = reference.programmers;
-        if (setting.programmer && ALLPROGRAMMERS[setting.programmer]) {
-            programmers = [setting.programmer];
+    const general: GeneralSetting = settings.get("general");
+    const targets: { [tag: string]: TargetSetting } = settings.get("targets");
+    allTargets = {};
+    // Then find all boards
+    Object.keys(targets).forEach((key: string) => {
+        const setting: TargetSetting = targets[key];
+        // Check setting is correct
+        if (!ALLBOARDS[setting.board]) {
+            // Check board exists
+            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': board '${setting.board}' does not exist!`);
+        } else if (!ALLPROGRAMMERS[setting.programmer]) {
+            // Check programmer exist
+            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': programmer '${setting.programmer}' does not exist!`);
+        } else if (ALLBOARDS[setting.board].programmers.indexOf(setting.programmer) == -1) {
+            // Check programmer is allowed for board
+            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': programmer '${setting.programmer}' not available for board '${setting.board}'!`);
+        } else if (setting.frequency && ALLBOARDS[setting.board].frequencies.indexOf(setting.frequency) == -1) {
+            // Check frequency is allowed for board
+            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': frequency '${setting.frequency}' is not allowed for board '${setting.board}'!`);
+        } else if (!setting.frequency && ALLBOARDS[setting.board].frequencies.length > 1) {
+            // Check frequency is allowed for board
+            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': missing frequency '${setting.frequency}' for board '${setting.board}'!`);
+        } else {
+            // No error: add this to the validated list of targets
+            // First calculate frequency for target (if not specified)
+            let frequency: number = setting.frequency || ALLBOARDS[setting.board].frequencies[0];
+            allTargets[key] = {
+                board: setting.board,
+                frequency,
+                programmer: setting.programmer,
+                serial: setting.serial
+            };
         }
-        return {
-            name: reference.name, 
-            frequencies: setting.frequencies ? setting.frequencies : reference.frequencies,
-            programmer: reference.programmer,
-            variant: reference.variant,
-            mcu: reference.mcu,
-            arch: reference.arch,
-            programmers: programmers,
-            serial: setting.serial
-        };
+    });
+    // Then check default target
+    if (!allTargets[general.defaultTarget]) {
+        errors.push(`Invalid 'fastarduino.general' setting for 'defaultTarget': there is no defined target named '${general.defaultTarget}'!`);
+    } else {
+        //TODO Check current target is still available, if not replace it!
+        //TODO Handle default target
+        // statusFeedback.text = "No Target";
     }
-    return null;
+    projectType = general.projectType;
+    errors.forEach((error) => { vscode.window.showWarningMessage(error); });
 }
 
 // Current target as selected by user
 interface Target {
+    tag: string;
     board: string;
     frequency: string;
     programmer: string;
@@ -198,7 +209,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     
     // Get current target and programmer
     const target: Target = context.workspaceState.get('fastarduino.target');
-    const board: Board = allBoards[target.board];
+    const board: Board = ALLBOARDS[target.board];
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
@@ -207,7 +218,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
-    if (target.programmer) {
+    // Do not create upload tasks if current project is just a library
+    if (projectType === "Application" && target.programmer) {
         const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
         command = command + 
             `DUDE_OPTION=${programmer.option} CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
@@ -259,30 +271,14 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
 //FIXME this function is async hence returns a Promise (on nothing...) which gonna be rejected... => messages in debug console...
-//TODO maybe it would be better for user settings to include tags (user defined) each listing a complete configuration (board,frequency,programmer)
-// And only present the list of tags for setting a target (+ serial device if no default)
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const boardSelection: string = await pick("Select Target Board or MCU", Object.keys(allBoards));
-    const board: Board = allBoards[boardSelection];
-
-    // Ask for frequency if not fixed
-    let frequency: string;
-    if (board.frequencies) {
-        if (board.frequencies.length > 1) {
-            const listFrequencies: string[] = board.frequencies.map((f: number) => f.toString() + "MHz");
-            frequency = await pick("Select Target MCU Frequency", listFrequencies);
-        } else {
-            frequency = board.frequencies[0].toString() + "MHz";
-        }
-    }
-
-    // Ask for programmer if more than one to choose from
-    const programmerSelection = await pick("Select Programmer used for Target", board.programmers);
-    const programmer = ALLPROGRAMMERS[programmerSelection];
+    const targetSelection: string = await pick("Select Target Board or MCU", Object.keys(allTargets));
+    const target: TargetSetting = allTargets[targetSelection];
 
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
+    const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
     if (programmer.serials > 0) {
         const devices = await listSerialDevices();
         if (devices && devices.length > 1) {
@@ -291,24 +287,26 @@ async function setTarget(context: vscode.ExtensionContext) {
         } else {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
-                value: board.serial ? board.serial : "/dev/ttyACM0",
-                valueSelection: board.serial ? undefined : [8,12]
+                value: target.serial ? target.serial : "/dev/ttyACM0",
+                valueSelection: target.serial ? undefined : [8,12]
             });
         }
     }
 
-    const boardText = `${boardSelection} (${frequency})`;
-    const programmerText = serial ? ` [${programmerSelection} (${serial})]` : ` [${programmerSelection}]`;
+    const frequency: string = target.frequency.toString() + "MHz";
+    const boardText = `${target.board} (${frequency})`;
+    const programmerText = serial ? ` [${target.programmer} (${serial})]` : ` [${target.programmer}]`;
     statusFeedback.text = boardText + programmerText;
 
     // Store to workspace state for use by other commands
-    const target: Target = {
-        board: boardSelection, 
-        frequency: frequency.replace("MHz", "000000UL"),
+    const actualTarget: Target = {
+        tag: targetSelection,
+        board: target.board, 
+        frequency: target.frequency.toString() + "000000UL",
         programmer: programmer.name, 
         serial: serial
     };
-    context.workspaceState.update('fastarduino.target', target);
+    context.workspaceState.update('fastarduino.target', actualTarget);
 }
 
 async function pick(message: string, labels: string[]) {
