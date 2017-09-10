@@ -9,9 +9,7 @@ import * as child_process from 'child_process';
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
 
-// Called when your FastArduino extension is activated (i.e. when current Workspace folder contains Makefile)
-//TODO There is a risk for activating the extension for other projects not using FastArduino!
-// Hence we should protect against generating tasks for other projects! Maybe check a "flag" file?
+// Called when your FastArduino extension is activated (i.e. when current Workspace folder contains a .fastarduino marker file)
 export function activate(context: vscode.ExtensionContext) {
     // Add context in the status bar
     statusFeedback = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
@@ -83,7 +81,7 @@ let allBoards: { [key: string]: Board; } = {};
 // Initialize boards and programmers from fastarduino.json (only ocne at activation time)
 function initBoardsList(context: vscode.ExtensionContext) {
     const configFile: string = context.asAbsolutePath("./fastarduino.json");
-    let config: { boards: Board[], programmers: Programmer[] } = JSON.parse(fs.readFileSync(configFile).toString());
+    const config: { boards: Board[], programmers: Programmer[] } = JSON.parse(fs.readFileSync(configFile).toString());
 
     ALLPROGRAMMERS = {};
     let generalProgrammers: string[] = [];
@@ -102,7 +100,7 @@ function initBoardsList(context: vscode.ExtensionContext) {
     });
 
     Object.keys(ALLPROGRAMMERS).forEach((key: string) => {
-        let target: string = ALLPROGRAMMERS[key].onlyFor;
+        const target: string = ALLPROGRAMMERS[key].onlyFor;
         if (target) {
             ALLBOARDS[target].programmers.push(key);
         }
@@ -124,7 +122,7 @@ function rebuildBoardsAndProgrammersList() {
     const listedBoards: BoardSetting[] = settings.get("listedBoards");
     if (listedBoards.length) {
         // Then find all boards
-        let boards = listedBoards   .filter((setting) => ALLBOARDS[setting.board] ? true : false)
+        const boards = listedBoards .filter((setting) => ALLBOARDS[setting.board] ? true : false)
                                     .map(formatBoardSetting);
         allBoards = {};
         boards.forEach((board: Board) => {
@@ -147,7 +145,7 @@ function rebuildBoardsAndProgrammersList() {
 function formatBoardSetting(setting: BoardSetting): Board {
     // Create a new Board based on setting
     if (ALLBOARDS[setting.board]) {
-        let reference: Board = ALLBOARDS[setting.board];
+        const reference: Board = ALLBOARDS[setting.board];
         let programmers: string[] = reference.programmers;
         if (setting.programmer && ALLPROGRAMMERS[setting.programmer]) {
             programmers = [setting.programmer];
@@ -185,7 +183,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         do {
             // Remove last path part
             dirs.pop();
-            let path: string = dirs.join("/");
+            const path: string = dirs.join("/");
             // Check if current path contains a Makefile
             if (fs.existsSync(path + "/Makefile")) {
                 makefileDir = path;
@@ -235,7 +233,7 @@ interface FastArduinoTaskDefinition extends vscode.TaskDefinition {
 
 function createTask(command: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
     // Create specific TaskDefinition
-    let definition: FastArduinoTaskDefinition = {
+    const definition: FastArduinoTaskDefinition = {
         type: "FastArduino",
         kind: label
     };
@@ -272,7 +270,7 @@ async function setTarget(context: vscode.ExtensionContext) {
     let frequency: string;
     if (board.frequencies) {
         if (board.frequencies.length > 1) {
-            let listFrequencies: string[] = board.frequencies.map((f: number) => f.toString() + "MHz");
+            const listFrequencies: string[] = board.frequencies.map((f: number) => f.toString() + "MHz");
             frequency = await pick("Select Target MCU Frequency", listFrequencies);
         } else {
             frequency = board.frequencies[0].toString() + "MHz";
@@ -286,7 +284,7 @@ async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
     if (programmer.serials > 0) {
-        let devices = await listSerialDevices();
+        const devices = await listSerialDevices();
         if (devices && devices.length > 1) {
             //TODO set default?
             serial = await pick("Enter Serial Device:", devices);
@@ -299,8 +297,8 @@ async function setTarget(context: vscode.ExtensionContext) {
         }
     }
 
-    let boardText = `${boardSelection} (${frequency})`;
-    let programmerText = serial ? ` [${programmerSelection} (${serial})]` : ` [${programmerSelection}]`;
+    const boardText = `${boardSelection} (${frequency})`;
+    const programmerText = serial ? ` [${programmerSelection} (${serial})]` : ` [${programmerSelection}]`;
     statusFeedback.text = boardText + programmerText;
 
     // Store to workspace state for use by other commands
@@ -335,7 +333,7 @@ async function listSerialDevices(): Promise<string[]> {
                                     "");
         child_process.exec(command, (error, stdout, stderr) => {
             if (!error) {
-                let devices: string[] = stdout  .split("\n")
+                const devices: string[] = stdout.split("\n")
                                                 .filter((value) => regex.test(value))
                                                 .map((value) => regex.exec(value)[1].replace("../../", "/dev/"));
                 resolve(devices);
