@@ -79,6 +79,25 @@
                                 "description": "Default Serial Device to use for this Programmer.",
                                 "type": "string",
                                 "pattern": "^/dev/tty[A-Z0-9]+$"
+                            },
+                            "fuses": {
+                                "description": "",
+                                "type": "object",
+                                "properties": {
+                                    "hfuse": {
+                                        "type": "string",
+                                        "pattern": "0x[0-9A-Fa-f][0-9A-Fa-f]"
+                                    },
+                                    "lfuse": {
+                                        "type": "string",
+                                        "pattern": "0x[0-9A-Fa-f][0-9A-Fa-f]"
+                                    },
+                                    "efuse": {
+                                        "type": "string",
+                                        "pattern": "0x[0-9A-Fa-f][0-9A-Fa-f]"
+                                    }
+                                },
+                                "required": ["hfuse", "lfuse", "efuse"]
                             }
                         },
                         "required": ["board", "programmer"]

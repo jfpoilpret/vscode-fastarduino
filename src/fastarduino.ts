@@ -117,11 +117,17 @@ interface GeneralSetting {
     defaultTarget: string;
 }
 
+interface Fuses {
+    hfuse: string;
+    lfuse: string;
+    efuse: string;
+}
 interface TargetSetting {
     board: string;
     frequency?: number;
     programmer: string;
     serial?: string;
+    fuses?: Fuses;
 }
 
 // Rebuild list of boards and programmers used for current project (called whenever project configuration change)
@@ -158,7 +164,8 @@ function rebuildBoardsAndProgrammersList() {
                 board: setting.board,
                 frequency,
                 programmer: setting.programmer,
-                serial: setting.serial
+                serial: setting.serial,
+                fuses: setting.fuses
             };
         }
     });
@@ -219,6 +226,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
     // Do not create upload tasks if current project is just a library
+    //FIXME this will not work with FastArduino embedded examples! 
     if (projectType === "Application" && target.programmer) {
         const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
         command = command + 
@@ -231,7 +239,9 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         if (programmer.canProgramEEPROM) {
             allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
         }
-        if (programmer.canProgramFuses) {
+        if (programmer.canProgramFuses && allTargets[target.tag].fuses) {
+            const fuses: Fuses = allTargets[target.tag].fuses;
+            command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse}`;
             allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
         }
     }
@@ -293,10 +303,11 @@ async function setTarget(context: vscode.ExtensionContext) {
         }
     }
 
-    const frequency: string = target.frequency.toString() + "MHz";
-    const boardText = `${target.board} (${frequency})`;
-    const programmerText = serial ? ` [${target.programmer} (${serial})]` : ` [${target.programmer}]`;
-    statusFeedback.text = boardText + programmerText;
+    let feedback = `${targetSelection}`;
+    if (serial) {
+        feedback = feedback + ` (${serial})`;
+    }
+    statusFeedback.text = feedback;
 
     // Store to workspace state for use by other commands
     const actualTarget: Target = {
