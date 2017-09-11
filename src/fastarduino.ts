@@ -175,6 +175,7 @@ function rebuildBoardsAndProgrammersList() {
     } else {
         //TODO Check current target is still available, if not replace it!
         //TODO Handle default target
+        // But for that we need access to context! make it an argument and call function from closure? Will that work?
         // statusFeedback.text = "No Target";
     }
     projectType = general.projectType;
@@ -208,11 +209,13 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
                 break;
             }
         } while (dirs.length);
-        if (!makefileDir) {
-            return [];
-        }
     }
-    //FIXME what if makefileDir is ""?
+    if (!makefileDir) {
+        return [];
+    }
+
+    // Check if the project is an application or a library (different make targets)
+    const isLibrary: boolean = fs.existsSync(makefileDir + "/.fastarduino.library");
     
     // Get current target and programmer
     const target: Target = context.workspaceState.get('fastarduino.target');
@@ -226,8 +229,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
     // Do not create upload tasks if current project is just a library
-    //FIXME this will not work with FastArduino embedded examples! 
-    if (projectType === "Application" && target.programmer) {
+    if (target.programmer && !isLibrary) {
         const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
         command = command + 
             `DUDE_OPTION=${programmer.option} CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
@@ -297,7 +299,7 @@ async function setTarget(context: vscode.ExtensionContext) {
         } else {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
-                value: target.serial ? target.serial : "/dev/ttyACM0",
+                value: target.serial || "/dev/ttyACM0",
                 valueSelection: target.serial ? undefined : [8,12]
             });
         }
