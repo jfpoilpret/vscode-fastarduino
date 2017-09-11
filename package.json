@@ -22,15 +22,6 @@
                 "fastarduino.general": {
                     "type": "object",
                     "properties": {
-                        "projectType": {
-                            "description": "Type of the project; will determine available tasks.",
-                            "type": "string",
-                            "enum": [
-                                "Application",
-                                "Library"
-                            ],
-                            "default": "Application"
-                        },
                         "defaultTarget": {
                             "description": "Default target (selected from fastarduino.targets)",
                             "type": "string"

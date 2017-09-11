@@ -78,8 +78,6 @@ let ALLBOARDS: { [key: string]: Board; } = {};
 let ALLPROGRAMMERS: { [key: string]: Programmer; } = {};
 // Targets list according to user settings
 let allTargets: { [key: string]: TargetSetting; } = {};
-// Type of project
-let projectType: string;
 
 // Initialize boards and programmers from fastarduino.json (only ocne at activation time)
 function initBoardsList(context: vscode.ExtensionContext) {
@@ -112,7 +110,6 @@ function initBoardsList(context: vscode.ExtensionContext) {
 
 // Maps to user settings used by current project
 interface GeneralSetting {
-    projectType?: string;
     defaultTarget: string;
 }
 
@@ -205,7 +202,6 @@ function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext) {
             context.workspaceState.update('fastarduino.target', actualTarget);
         }
     }
-    projectType = general.projectType;
     errors.forEach((error) => { vscode.window.showWarningMessage(error); });
 }
 
@@ -304,15 +300,9 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
     const targetSelection: string = (await pickItems("Select Target Board or MCU", Object.keys(allTargets).map((tag: string) => {
-        const target: TargetSetting = allTargets[tag];
-        const frequency: string = target.frequency.toString() + "MHz";
-        let description: string = `${target.board} (${frequency}) - ${target.programmer}`;
-        if (target.serial) {
-            description = description + ` (${target.serial})`;
-        }
         return {
             label: tag,
-            description
+            description: targetDetails(tag)
         }
     })));
     const target: TargetSetting = allTargets[targetSelection];
@@ -334,11 +324,8 @@ async function setTarget(context: vscode.ExtensionContext) {
         }
     }
 
-    let feedback = `${targetSelection}`;
-    if (serial) {
-        feedback = feedback + ` (${serial})`;
-    }
-    statusFeedback.text = feedback;
+    statusFeedback.text = targetSelection;
+    statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
 
     // Store to workspace state for use by other commands
     const actualTarget: Target = {
@@ -349,6 +336,16 @@ async function setTarget(context: vscode.ExtensionContext) {
         serial: serial
     };
     context.workspaceState.update('fastarduino.target', actualTarget);
+}
+
+function targetDetails(tag: string): string {
+    const target: TargetSetting = allTargets[tag];
+    const frequency: string = target.frequency.toString() + "MHz";
+    let description: string = `${target.board} (${frequency}) - ${target.programmer}`;
+    if (target.serial) {
+        description = description + ` (${target.serial})`;
+    }
+    return description;
 }
 
 async function pick(message: string, labels: string[]) {
