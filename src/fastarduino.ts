@@ -1,6 +1,5 @@
 'use strict';
 
-//TODO improve feedback of status bar item: tag name + tooltip?
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
@@ -22,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
     initBoardsList(context);
     // Initialize defaults (target, serial, programmer...)
-    rebuildBoardsAndProgrammersList(context);
+    rebuildBoardsAndProgrammersList(context, true);
     // auto-reload if configuration change
     vscode.workspace.onDidChangeConfiguration(() => { rebuildBoardsAndProgrammersList(context); });
 
@@ -136,7 +135,7 @@ interface Target {
 }
 
 // Rebuild list of boards and programmers used for current project (called whenever project configuration change)
-function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext) {
+function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, forceDefault?: boolean) {
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
     const general: GeneralSetting = settings.get("general");
@@ -180,7 +179,7 @@ function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext) {
     } else {
         // Check current target is still available, if not replace it!
         const target: Target = context.workspaceState.get("fastarduino.target");
-        if (!target || Object.keys(allTargets).indexOf(target.tag) == -1) {
+        if (forceDefault || !target || Object.keys(allTargets).indexOf(target.tag) == -1) {
             // Old target is not available anymore, replace it with new default
             const targetSelection: string = general.defaultTarget;
             const target: TargetSetting = allTargets[targetSelection];
@@ -190,7 +189,8 @@ function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext) {
                 feedback = feedback + ` (${target.serial})`;
             }
             statusFeedback.text = feedback;
-        
+            statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
+            
             // Store to workspace state for use by other commands
             const actualTarget: Target = {
                 tag: targetSelection,
