@@ -1,6 +1,5 @@
 'use strict';
 
-//TODO handle default target
 //TODO improve feedback of status bar item: tag name + tooltip?
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
@@ -23,9 +22,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
     initBoardsList(context);
     // Initialize defaults (target, serial, programmer...)
-    rebuildBoardsAndProgrammersList();
+    rebuildBoardsAndProgrammersList(context);
     // auto-reload if configuration change
-    vscode.workspace.onDidChangeConfiguration(rebuildBoardsAndProgrammersList);
+    vscode.workspace.onDidChangeConfiguration(() => { rebuildBoardsAndProgrammersList(context); });
 
     // Register all commands
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setTarget', () => {
@@ -111,7 +110,7 @@ function initBoardsList(context: vscode.ExtensionContext) {
     });
 }
 
-// Maps to user settings of board/programmers used by current project
+// Maps to user settings used by current project
 interface GeneralSetting {
     projectType?: string;
     defaultTarget: string;
@@ -130,8 +129,17 @@ interface TargetSetting {
     fuses?: Fuses;
 }
 
+// Current target as selected by user
+interface Target {
+    tag: string;
+    board: string;
+    frequency: string;
+    programmer: string;
+    serial?: string;
+}
+
 // Rebuild list of boards and programmers used for current project (called whenever project configuration change)
-function rebuildBoardsAndProgrammersList() {
+function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext) {
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
     const general: GeneralSetting = settings.get("general");
@@ -173,22 +181,32 @@ function rebuildBoardsAndProgrammersList() {
     if (!allTargets[general.defaultTarget]) {
         errors.push(`Invalid 'fastarduino.general' setting for 'defaultTarget': there is no defined target named '${general.defaultTarget}'!`);
     } else {
-        //TODO Check current target is still available, if not replace it!
-        //TODO Handle default target
-        // But for that we need access to context! make it an argument and call function from closure? Will that work?
-        // statusFeedback.text = "No Target";
+        // Check current target is still available, if not replace it!
+        const target: Target = context.workspaceState.get("fastarduino.target");
+        if (!target || Object.keys(allTargets).indexOf(target.tag) == -1) {
+            // Old target is not available anymore, replace it with new default
+            const targetSelection: string = general.defaultTarget;
+            const target: TargetSetting = allTargets[targetSelection];
+
+            let feedback = `${targetSelection}`;
+            if (target.serial) {
+                feedback = feedback + ` (${target.serial})`;
+            }
+            statusFeedback.text = feedback;
+        
+            // Store to workspace state for use by other commands
+            const actualTarget: Target = {
+                tag: targetSelection,
+                board: target.board, 
+                frequency: target.frequency.toString() + "000000UL",
+                programmer: target.programmer, 
+                serial: target.serial
+            };
+            context.workspaceState.update('fastarduino.target', actualTarget);
+        }
     }
     projectType = general.projectType;
     errors.forEach((error) => { vscode.window.showWarningMessage(error); });
-}
-
-// Current target as selected by user
-interface Target {
-    tag: string;
-    board: string;
-    frequency: string;
-    programmer: string;
-    serial?: string;
 }
 
 function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
@@ -285,7 +303,18 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 //FIXME this function is async hence returns a Promise (on nothing...) which gonna be rejected... => messages in debug console...
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const targetSelection: string = await pick("Select Target Board or MCU", Object.keys(allTargets));
+    const targetSelection: string = (await pickItems("Select Target Board or MCU", Object.keys(allTargets).map((tag: string) => {
+        const target: TargetSetting = allTargets[tag];
+        const frequency: string = target.frequency.toString() + "MHz";
+        let description: string = `${target.board} (${frequency}) - ${target.programmer}`;
+        if (target.serial) {
+            description = description + ` (${target.serial})`;
+        }
+        return {
+            label: tag,
+            description
+        }
+    })));
     const target: TargetSetting = allTargets[targetSelection];
 
     // Ask user to pick serial port if programmer needs 1 or more
@@ -327,6 +356,14 @@ async function pick(message: string, labels: string[]) {
         return await vscode.window.showQuickPick(labels, { placeHolder: message });
     } else {
         return labels[0];
+    }
+}
+
+async function pickItems(message: string, items: vscode.QuickPickItem[]) {
+    if (items.length > 1) {
+        return (await vscode.window.showQuickPick(items, { placeHolder: message })).label;
+    } else {
+        return items[0].label;
     }
 }
 
