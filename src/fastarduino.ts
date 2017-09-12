@@ -136,6 +136,7 @@ interface Target {
 
 // Rebuild list of boards and programmers used for current project (called whenever project configuration change)
 function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, forceDefault?: boolean) {
+    console.log("rebuildBoardsAndProgrammersList()");
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
     const general: GeneralSetting = settings.get("general");
@@ -234,7 +235,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
     // let command: string = `make CONF=${target.config} -C ${makefileDir} `;
-    let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C ${makefileDir} `;
+    let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     
@@ -242,11 +243,14 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     if (target.programmer && !isLibrary) {
         const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
         command = command + 
-            `DUDE_OPTION=${programmer.option} CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
+            `DUDE_OPTION="${programmer.option}" CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
         if (target.serial) {
             command = command + `DUDE_SERIAL=${target.serial} `;
         }
         //TODO Also need to set DUDE_SERIAL_RESET (for LEONARDO)
+        if (programmer.serials > 1) {
+            command = command + `DUDE_SERIAL_RESET=${target.serial} `;
+        }
         allTasks.push(createTask(command + "flash", "Upload Flash", null, false));
         if (programmer.canProgramEEPROM) {
             allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
