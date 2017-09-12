@@ -60,7 +60,7 @@
                                 "enum": [
                                     "UNO USB",
                                     "NANO USB",
-                                    "LEONARDOO USB",
+                                    "LEONARDO USB",
                                     "MEGA USB",
                                     "ArduinoISP.cc",
                                     "ISP Shield"
