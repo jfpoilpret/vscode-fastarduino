@@ -184,11 +184,7 @@ function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, force
             const targetSelection: string = general.defaultTarget;
             const target: TargetSetting = allTargets[targetSelection];
 
-            let feedback = `${targetSelection}`;
-            if (target.serial) {
-                feedback = feedback + ` (${target.serial})`;
-            }
-            statusFeedback.text = feedback;
+            statusFeedback.text = targetSelection;
             statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
             
             // Store to workspace state for use by other commands
@@ -296,17 +292,19 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 }
 
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
-//FIXME this function is async hence returns a Promise (on nothing...) which gonna be rejected... => messages in debug console...
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const targetSelection: string = (await pickItems("Select Target Board or MCU", Object.keys(allTargets).map((tag: string) => {
+    const targetSelection: string = await pickItems("Select Target Board or MCU", Object.keys(allTargets).map((tag: string) => {
         return {
             label: tag,
             description: targetDetails(tag)
         }
-    })));
+    }));
+    if (!targetSelection) {
+        return;
+    }
     const target: TargetSetting = allTargets[targetSelection];
-
+    
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
     const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
@@ -321,6 +319,9 @@ async function setTarget(context: vscode.ExtensionContext) {
                 value: target.serial || "/dev/ttyACM0",
                 valueSelection: target.serial ? undefined : [8,12]
             });
+        }
+        if (!serial) {
+            return;
         }
     }
 
@@ -358,7 +359,8 @@ async function pick(message: string, labels: string[]) {
 
 async function pickItems(message: string, items: vscode.QuickPickItem[]) {
     if (items.length > 1) {
-        return (await vscode.window.showQuickPick(items, { placeHolder: message })).label;
+        const selection: vscode.QuickPickItem = await vscode.window.showQuickPick(items, { placeHolder: message });
+        return (selection ? selection.label : null);
     } else {
         return items[0].label;
     }
