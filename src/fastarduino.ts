@@ -136,7 +136,6 @@ interface Target {
 
 // Rebuild list of boards and programmers used for current project (called whenever project configuration change)
 function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, forceDefault?: boolean) {
-    console.log("rebuildBoardsAndProgrammersList()");
     let errors: string[] = [];
     const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
     const general: GeneralSetting = settings.get("general");
