@@ -2,7 +2,7 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "publisher": "jfpoilpret",
     "engines": {
         "vscode": "^1.15.0"
