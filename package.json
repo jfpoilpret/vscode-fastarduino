@@ -10,6 +10,9 @@
     "categories": [
         "Other"
     ],
+    "extensionDependencies": [
+        "ms-vscode.cpptools"
+    ],
     "activationEvents": [
         "workspaceContains:.fastarduino"
     ],
