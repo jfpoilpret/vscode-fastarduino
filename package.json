@@ -4,11 +4,27 @@
     "description": "FastArduino for Visual Studio Code",
     "version": "0.1.0",
     "publisher": "jfpoilpret",
+    "author": {
+        "name": "Jean-Francois Poilpret"
+    },
+    "license": "SEE LICENSE IN LICENSE-2.0.txt",
     "engines": {
         "vscode": "^1.15.0"
     },
+    "preview": true,
+    "os": ["linux", "darwin"],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jfpoilpret/vscode-fastarduino"
+    },
     "categories": [
         "Other"
+    ],
+    "keywords": [
+        "fastarduino",
+        "avr",
+        "framework",
+        "arduino"
     ],
     "extensionDependencies": [
         "ms-vscode.cpptools"
