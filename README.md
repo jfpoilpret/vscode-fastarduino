@@ -99,18 +99,26 @@ Here is an example of settings with 2 targets:
         "Product": {
             "board": "ATmega328",
             "frequency": 8,
-            "programmer": "ArduinoISP.cc"
+            "programmer": "ArduinoISP.cc",
+            "fuses": {
+                "hfuse": "0xDE",
+                "lfuse": "0xE2",
+                "efuse": "0x05"
+            }
         }
     }
 
 Note that for AVR MCU targets, you need to specify their frequency (expressed in MHz).
+
 Specifiying a serial device is optional: when one is needed, you will be required to input it by hand; for some programmers (e.g. the ArduinoISP prgorammer), no serial device is needed, they get automatically recognized by your system.
+
+In addition, you may define values for the MCU fuses that you may program with the task "FastArduino: Program Fuses".
 
 The list of possible targets are based on FastArduino supported targets; it is defined in the extension's [`fastarduino.json`](https://github.com/jfpoilpret/vscode-fastarduino/blob/master/fastarduino.json).
 
 ## Known Issues
 
-No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/fastarduino-project-template/issues).
+No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/vscode-fastarduino/issues).
 
 ## Release Notes
 
