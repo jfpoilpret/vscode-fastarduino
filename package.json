@@ -2,7 +2,7 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
@@ -88,7 +88,7 @@
                             "serial": {
                                 "description": "Default Serial Device to use for this Programmer.",
                                 "type": "string",
-                                "pattern": "^/dev/tty[A-Z0-9]+$"
+                                "pattern": "^/dev/(tty|cu\\.)[A-Za-z0-9]+$"
                             },
                             "fuses": {
                                 "description": "",
