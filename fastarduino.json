@@ -6,6 +6,7 @@
 			"programmer": "UNO USB",
 			"variant": "ARDUINO_UNO",
 			"mcu": "atmega328p",
+			"mcuDefine": "__AVR_ATmega328P__",
 			"arch": "avr5"
 		},
 		{
@@ -14,6 +15,7 @@
 			"programmer": "NANO USB",
 			"variant": "ARDUINO_NANO",
 			"mcu": "atmega328p",
+			"mcuDefine": "__AVR_ATmega328P__",
 			"arch": "avr5"
 		},
 		{
@@ -22,6 +24,7 @@
 			"programmer": "LEONARDO USB",
 			"variant": "ARDUINO_LEONARDO",
 			"mcu": "atmega32u4",
+			"mcuDefine": "__AVR_ATmega32U4__",
 			"arch": "avr5"
 		},
 		{
@@ -30,6 +33,7 @@
 			"programmer": "MEGA USB",
 			"variant": "ARDUINO_MEGA",
 			"mcu": "atmega2560",
+			"mcuDefine": "__AVR_ATmega2560__",
 			"arch": "avr6"
 		},
 		{
@@ -37,13 +41,15 @@
 			"frequencies": [8,16],
 			"variant": "BREADBOARD_ATMEGA328P",
 			"mcu": "atmega328p",
+			"mcuDefine": "__AVR_ATmega328P__",
 			"arch": "avr5"
 		},
 		{
 			"name": "ATtinyX4",
 			"frequencies": [8,16],
-			"variant": "BREADBOARD_ATMEGA328P",
+			"variant": "BREADBOARD_ATTINYX4",
 			"mcu": "attiny84",
+			"mcuDefine": "__AVR_ATtiny84A__",
 			"arch": "avr25"
 		}
 	],
