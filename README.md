@@ -41,7 +41,7 @@ FastArduino is based on C++, hence this extension will automatically require the
 
 FastArduino relies on [AVR toolchain](http://www.atmel.com/tools/ATMELAVRTOOLCHAINFORLINUX.aspx) for building, hence it must be installed on your machine and added to the `$PATH`.
 
-Then, the C/C++ extension must be properly configured for your workspace to use AVR toolchain, through the `c_cpp_properties.json` file which shall contain, e.g. for Linux:
+Then, the C/C++ extension must be properly configured for your workspace to use AVR toolchain, through the `c_cpp_properties_source.json` file which shall contain, e.g. for Linux:
 
     {
         "configurations": [
@@ -51,11 +51,9 @@ Then, the C/C++ extension must be properly configured for your workspace to use 
                     "~/avr8-gnu-toolchain-linux_x86_64/avr/include",
                     "~/avr8-gnu-toolchain-linux_x86_64/avr/include/avr",
                     "${workspaceRoot}/../fast-arduino-lib/cores",
-                    "${workspaceRoot}/../fast-arduino-lib/cores/boards",
-                    "${workspaceRoot}/../fast-arduino-lib/cores/devices",
                     "${workspaceRoot}"
                 ],
-                "defines": ["ARDUINO_UNO", "F_CPU=16000000UL"],
+                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}"],
                 "intelliSenseMode": "clang-x64",
                 "browse": {
                     "path": [
@@ -72,9 +70,50 @@ Then, the C/C++ extension must be properly configured for your workspace to use 
 
 In this example, `~/avr8-gnu-toolchain-linux_x86_64/` must be changed to the location of the AVR toolchain. This sample also supposes that FastArduino library is checked out at the same level as your project.
 
+Note that `c_cpp_properties_source.json` is not the actual file expected by the C++ extension; in fact this file is used as a "template" by VSCode fastArduino extension to generate the actual `c_cpp_properties.json` used by C++ extension.
+
+In the above example, 3 specific properties are defined in the `defines` array:
+- `${VARIANT}`
+- `${AVR_FREQUENCY}`
+- `${AVR_MCU_DEFINE}`
+
+These properties will be automatically replaced by the actual values for the selected target. This will help the C++ extension parse your code with the correct defines for the target you use. You may add your own defines if you need, but you should keep those 3 existing defines here.
+
+For Macintosh, you would normally use the following configuration, here based on the AVR toolchain directly installed along the official Arduino IDE:
+
+    {
+        "configurations": [
+            {
+                "name": "Mac",
+                "includePath": [
+                    "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/avr/include",
+                    "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/avr/include/avr",
+                    "${workspaceRoot}/../fast-arduino-lib/cores",
+                    "${workspaceRoot}"
+                ],
+                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}"],
+                "intelliSenseMode": "clang-x64",
+                "browse": {
+                    "path": [
+                        "${workspaceRoot}/../fast-arduino-lib/cores",
+                        "${workspaceRoot}"
+                    ],
+                    "limitSymbolsToIncludedHeaders": true,
+                    "databaseFilename": ""
+                },
+                "macFrameworkPath": [
+                    "/System/Library/Frameworks",
+                    "/Library/Frameworks"
+                ]
+            },
+            ...
+        ]
+    }
+
 In addition, I use the following extensions for my own developments but they are not mandatory:
 - Include Autocomplete
 - TODO Highlight
+- Auto Comment Blocks
 
 One easy way to create a new project based on FastArduino and use this VSCode extension with all predefined settings is to start with [this project template](https://github.com/jfpoilpret/fastarduino-project-template).
 
@@ -121,6 +160,12 @@ The list of possible targets are based on FastArduino supported targets; it is d
 No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/vscode-fastarduino/issues).
 
 ## Release Notes
+
+### 0.2.0
+
+- Fixed bad link to project issues in README.md
+- Added automatic set of defines in `c_cpp_properties.json` matching the currently selected target
+- Fixed regex for "serial" value in settings, in order to accept Mac devices too.
 
 ### 0.1.0
 
