@@ -9,6 +9,12 @@ import * as child_process from 'child_process';
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
 
+// Original c_cpp_properties.json file content
+let cppPropertiesPath: string;
+let cppPropertiesSourcePath: string;
+let originalCppProperties: string;
+let originalCppPropertiesWatcher: vscode.FileSystemWatcher;
+
 // Called when your FastArduino extension is activated (i.e. when current Workspace folder contains a .fastarduino marker file)
 export function activate(context: vscode.ExtensionContext) {
     // Add context in the status bar
@@ -17,7 +23,16 @@ export function activate(context: vscode.ExtensionContext) {
     statusFeedback.tooltip = "Select FastArduino Target";
     statusFeedback.command = "fastarduino.setTarget";
     statusFeedback.show();
-    
+
+    // Read original CppProperties file
+    initCppPropertiesPaths();
+    initOriginalCppProperties();
+    // Watch after changes to original CppProperties file
+    originalCppPropertiesWatcher = vscode.workspace.createFileSystemWatcher(cppPropertiesSourcePath);
+    originalCppPropertiesWatcher.onDidChange(initOriginalCppProperties);
+    originalCppPropertiesWatcher.onDidCreate(initOriginalCppProperties);
+    originalCppPropertiesWatcher.onDidDelete(initOriginalCppProperties);
+
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
     initBoardsList(context);
     // Initialize defaults (target, serial, programmer...)
@@ -45,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     statusFeedback.hide();
     statusFeedback.dispose();
+    originalCppPropertiesWatcher.dispose();
 }
 
 // Internal implementation
@@ -57,6 +73,7 @@ interface Board {
     programmer?: string;
     variant: string;
     mcu: string;
+    mcuDefine: string;
     arch: string;
     // The following part is calculated from settings
     programmers?: string[];
@@ -246,7 +263,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         if (target.serial) {
             command = command + `DUDE_SERIAL=${target.serial} `;
         }
-        //TODO Also need to set DUDE_SERIAL_RESET (for LEONARDO)
+        // Also need to set DUDE_SERIAL_RESET (for LEONARDO)
         if (programmer.serials > 1) {
             command = command + `DUDE_SERIAL_RESET=${target.serial} `;
         }
@@ -340,6 +357,7 @@ async function setTarget(context: vscode.ExtensionContext) {
         serial: serial
     };
     context.workspaceState.update('fastarduino.target', actualTarget);
+    updateCppProperties(actualTarget);
 }
 
 function targetDetails(tag: string): string {
@@ -392,4 +410,31 @@ async function listSerialDevices(): Promise<string[]> {
             }
         });
     });
+}
+
+function initCppPropertiesPaths() {
+    const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    cppPropertiesPath = currentFolder + "/.vscode/c_cpp_properties.json";
+    cppPropertiesSourcePath = currentFolder + "/.vscode/c_cpp_properties_source.json";
+}
+
+function initOriginalCppProperties() {
+    // Check c_cpp_properties_source.json exists and read its content into originalCppProperties
+    if (!fs.existsSync(cppPropertiesSourcePath)) {
+        vscode.window.showErrorMessage(`Missing file '${cppPropertiesSourcePath}'! Defining this file is recommended.`);
+        originalCppProperties = null;
+    } else {
+        originalCppProperties = fs.readFileSync(cppPropertiesSourcePath).toString();
+    }
+}
+
+function updateCppProperties(target: Target) {
+    if (originalCppProperties) {
+        const board: Board = ALLBOARDS[target.board];
+        // NOTE: split/join is one way to replace ALL occurrences of a string (string.replace() works only for one occurrence)
+        let json = originalCppProperties.split("${VARIANT}").join(board.variant)
+                                        .split("${AVR_MCU_DEFINE}").join(board.mcuDefine)
+                                        .split("${AVR_FREQUENCY}").join(target.frequency);
+        fs.writeFileSync(cppPropertiesPath, json);
+    }
 }
