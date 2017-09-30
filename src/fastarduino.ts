@@ -1,7 +1,8 @@
 'use strict';
 
+//TODO Refactor: externalize utilities (Substitutions, Picks, Official Boards List, User Settings...)
+
 // The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as child_process from 'child_process';
@@ -9,11 +10,18 @@ import * as child_process from 'child_process';
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
 
-// Original c_cpp_properties.json file content
-let cppPropertiesPath: string;
-let cppPropertiesSourcePath: string;
-let originalCppProperties: string;
-let originalCppPropertiesWatcher: vscode.FileSystemWatcher;
+// General handling of variable substitutions in json files
+//TODO rewrite all into a class with all functions
+interface Substitution {
+    source: string;
+    destination: string;
+    template?: string;
+    watcher?: vscode.FileSystemWatcher;
+}
+
+// All files for which we need variables substitutions
+let cppPropertiesSubstitution: Substitution;
+let tasksSubstitution: Substitution;
 
 // Called when your FastArduino extension is activated (i.e. when current Workspace folder contains a .fastarduino marker file)
 export function activate(context: vscode.ExtensionContext) {
@@ -24,14 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
     statusFeedback.command = "fastarduino.setTarget";
     statusFeedback.show();
 
-    // Read original CppProperties file
-    initCppPropertiesPaths();
-    initOriginalCppProperties();
-    // Watch after changes to original CppProperties file
-    originalCppPropertiesWatcher = vscode.workspace.createFileSystemWatcher(cppPropertiesSourcePath);
-    originalCppPropertiesWatcher.onDidChange(initOriginalCppProperties);
-    originalCppPropertiesWatcher.onDidCreate(initOriginalCppProperties);
-    originalCppPropertiesWatcher.onDidDelete(initOriginalCppProperties);
+    // Prepare substitutions for c_cpp_properties.json and tasks.json files
+    cppPropertiesSubstitution = initSubstitution(context, "c_cpp_properties");
+    tasksSubstitution = initSubstitution(context, "tasks", false);
 
     // Finish contruction of boards in ALLBOARDS (add links to programmers)
     initBoardsList(context);
@@ -60,7 +63,8 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     statusFeedback.hide();
     statusFeedback.dispose();
-    originalCppPropertiesWatcher.dispose();
+    disposeSubstitution(cppPropertiesSubstitution);
+    disposeSubstitution(tasksSubstitution);
 }
 
 // Internal implementation
@@ -80,6 +84,7 @@ interface Board {
     serial?: string;
 }
 
+// Internal structure holding important definitions for one programmer, comes from fastarduino.json
 interface Programmer {
     name: string;
     option: string;
@@ -89,10 +94,10 @@ interface Programmer {
     onlyFor?: string;
 }
 
-// Internal map of all supported targets
+// Internal map of ALL supported targets
 let ALLBOARDS: { [key: string]: Board; } = {};
 let ALLPROGRAMMERS: { [key: string]: Programmer; } = {};
-// Targets list according to user settings
+// Targets list according to USER settings
 let allTargets: { [key: string]: TargetSetting; } = {};
 
 // Initialize boards and programmers from fastarduino.json (only ocne at activation time)
@@ -213,6 +218,7 @@ function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, force
                 serial: target.serial
             };
             context.workspaceState.update('fastarduino.target', actualTarget);
+            targetUpdated(actualTarget);
         }
     }
     errors.forEach((error) => { vscode.window.showWarningMessage(error); });
@@ -250,7 +256,6 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
-    // let command: string = `make CONF=${target.config} -C ${makefileDir} `;
     let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
@@ -357,7 +362,7 @@ async function setTarget(context: vscode.ExtensionContext) {
         serial: serial
     };
     context.workspaceState.update('fastarduino.target', actualTarget);
-    updateCppProperties(actualTarget);
+    targetUpdated(actualTarget);
 }
 
 function targetDetails(tag: string): string {
@@ -412,29 +417,104 @@ async function listSerialDevices(): Promise<string[]> {
     });
 }
 
-function initCppPropertiesPaths() {
-    const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    cppPropertiesPath = currentFolder + "/.vscode/c_cpp_properties.json";
-    cppPropertiesSourcePath = currentFolder + "/.vscode/c_cpp_properties_source.json";
+//TODO rework variables list to avoid duplicates (AVR_FREQUENCY/F_CPU)
+function targetUpdated(target: Target) {
+    const board: Board = ALLBOARDS[target.board];
+    const programmer: Programmer = target.programmer && ALLPROGRAMMERS[target.programmer] || null;
+    const fuses: Fuses = programmer.canProgramFuses && allTargets[target.tag].fuses || null;
+    const variables: { [key: string]: string; } = {
+        "VARIANT": board.variant, 
+        "AVR_MCU_DEFINE": board.mcuDefine, 
+        "AVR_FREQUENCY": target.frequency,
+        "ARCH": board.arch,
+        "MCU": board.mcu,
+        "F_CPU": target.frequency,
+        "DUDE_OPTION": programmer && programmer.option && `'${programmer.option}'` || null,
+        "DUDE_SERIAL": target.serial,
+        "DUDE_SERIAL_RESET": programmer && (programmer.serials > 1) && target.serial || null,
+        "CAN_PROGRAM_EEPROM": programmer && programmer.canProgramEEPROM && "true" || null,
+        "CAN_PROGRAM_FUSES": programmer && programmer.canProgramFuses && "true" || null,
+        "HFUSE": fuses && fuses.hfuse || null,
+        "LFUSE": fuses && fuses.lfuse || null,
+        "EFUSE": fuses && fuses.efuse || null
+    };
+    // Put all variables in ono command line option variable
+    variables["FA_MAKE_OPTIONS"] = makeOptions(variables);
+    performSubstitution(cppPropertiesSubstitution, variables);
+    performSubstitution(tasksSubstitution, variables);
 }
 
-function initOriginalCppProperties() {
-    // Check c_cpp_properties_source.json exists and read its content into originalCppProperties
-    if (!fs.existsSync(cppPropertiesSourcePath)) {
-        vscode.window.showErrorMessage(`Missing file '${cppPropertiesSourcePath}'! Defining this file is recommended.`);
-        originalCppProperties = null;
+function makeOptions(variables: { [key: string]: string; }): string {
+    let options = "";
+    Object.keys(variables).forEach((key: string) => {
+        const value: string = variables[key];
+        if (value !== null) {
+            options = `${options} ${key}=${value}`;
+        }
+    });
+    return options;
+}
+
+// Generic substitution functions
+//================================
+function initSubstitution(context: vscode.ExtensionContext, name: string, warning: boolean = true): Substitution {
+    const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    let destination = currentFolder + `/.vscode/${name}.json`;
+    let source = currentFolder + `/.vscode/${name}_source.json`;
+    // Read source file content
+    if (!fs.existsSync(source)) {
+        if (warning) {
+            vscode.window.showErrorMessage(`Missing file '${source}'! Defining this file is recommended.`);
+        }
+        return {
+            source,
+            destination,
+            template: null
+        };
     } else {
-        originalCppProperties = fs.readFileSync(cppPropertiesSourcePath).toString();
+        let watcher: vscode.FileSystemWatcher = vscode.workspace.createFileSystemWatcher(source);
+        let substitution: Substitution = {
+            source,
+            destination,
+            template: fs.readFileSync(source).toString(),
+            watcher
+        };
+        let callback = function() {
+            substitution.template = fs.readFileSync(source).toString();
+            targetUpdated(context.workspaceState.get("fastarduino.target"));
+        };
+        watcher.onDidChange(callback);
+        watcher.onDidCreate(callback);
+        watcher.onDidDelete(callback);
+        return substitution;
     }
 }
 
-function updateCppProperties(target: Target) {
-    if (originalCppProperties) {
-        const board: Board = ALLBOARDS[target.board];
-        // NOTE: split/join is one way to replace ALL occurrences of a string (string.replace() works only for one occurrence)
-        let json = originalCppProperties.split("${VARIANT}").join(board.variant)
-                                        .split("${AVR_MCU_DEFINE}").join(board.mcuDefine)
-                                        .split("${AVR_FREQUENCY}").join(target.frequency);
-        fs.writeFileSync(cppPropertiesPath, json);
+function disposeSubstitution(substitution: Substitution) {
+    if (substitution && substitution.watcher) {
+        substitution.watcher.dispose();
+        substitution.watcher = null;
+    }
+}
+
+function substitute(template: string, substitutions: { [key: string]: string; }) {
+    let output: string = null;
+    if (template) {
+        output = template;
+        Object.keys(substitutions).forEach((key: string) => {
+            const value: string = substitutions[key];
+            // Substitute only if not null
+            if (value !== null) {
+                // NOTE: split/join is one way to replace ALL occurrences of a string (string.replace() works only for one occurrence)
+                output = output.split("${" + key + "}").join(value);
+            }
+        });
+    }
+    return output;
+}
+
+function performSubstitution(substitution: Substitution, substitutes: { [key: string]: string; }) {
+    if (substitution && substitution.template) {
+        fs.writeFileSync(substitution.destination, substitute(substitution.template, substitutes));
     }
 }

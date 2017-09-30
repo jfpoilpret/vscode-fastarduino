@@ -2,7 +2,7 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
@@ -39,6 +39,7 @@
             "type": "object",
             "properties": {
                 "fastarduino.general": {
+                    "description": "General FastArduino settings.",
                     "type": "object",
                     "properties": {
                         "defaultTarget": {
@@ -125,7 +126,7 @@
             {
                 "name": "avrgcc",
                 "owner": "fastarduino",
-                "fileLocation": ["relative", "${fileDirname}"],
+                "fileLocation": ["absolute"],
                 "pattern": {
                     "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
                     "file": 1,
