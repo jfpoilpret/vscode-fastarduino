@@ -111,6 +111,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
+    allTasks.push(createTask(`make clean-all -C "${makefileDir}"`, "Clean All Targets", vscode.TaskGroup.Clean, false));
     
     // Do not create upload tasks if current project is just a library
     if (target.programmer && !isLibrary) {
@@ -171,7 +172,7 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const targetSelection: string = await utils.pickItems("Select Target Board or MCU", Object.keys(config.allTargets).map((tag: string) => {
+    const targetSelection: string = await utils.pickItems("Select Target Board or MCU", Object.keys(configuration.allTargets).map((tag: string) => {
         return {
             label: tag,
             description: targetDetails(tag)
