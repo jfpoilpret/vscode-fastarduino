@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as child_process from 'child_process';
 import * as utils from './utils';
 import * as config from './config';
-import { Configuration } from './config';
+import { ConfigurationManager } from './config';
 import { Substitution } from './substitution';
 
 // Status items in status bar
@@ -18,7 +18,7 @@ let cppPropertiesSubstitution: Substitution;
 let tasksSubstitution: Substitution;
 
 // Targets Configuration
-let configuration: Configuration;
+let configuration: ConfigurationManager;
 
 // Called when your FastArduino extension is activated (i.e. when current Workspace folder contains a .fastarduino marker file)
 export function activate(context: vscode.ExtensionContext) {
@@ -31,22 +31,29 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Prepare substitutions for c_cpp_properties.json and tasks.json files
     cppPropertiesSubstitution = new Substitution(context, "c_cpp_properties");
-    cppPropertiesSubstitution.onTemplateChange((s: Substitution) => {
-        targetUpdated(s, context.workspaceState.get("fastarduino.target"));
-    });
+    context.subscriptions.push(cppPropertiesSubstitution);
     tasksSubstitution = new Substitution(context, "tasks", false);
-    tasksSubstitution.onTemplateChange((s) => {
-        targetUpdated(s, context.workspaceState.get("fastarduino.target"));
+    context.subscriptions.push(tasksSubstitution);
+    
+    // Read configuration and user settings
+    configuration = new ConfigurationManager(context);
+    context.subscriptions.push(configuration);
+    
+    // Register events listeners
+    cppPropertiesSubstitution.onTemplateChange((s: Substitution) => {
+        targetUpdated(s, configuration.getCurrentTarget());
     });
-
-    // Read configuration and suer settings
-    configuration = new Configuration(context);
+    tasksSubstitution.onTemplateChange((s) => {
+        targetUpdated(s, configuration.getCurrentTarget());
+    });
     configuration.onTargetChange((target: config.Target) => {
         statusFeedback.text = target.tag;
         statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(target.tag);
         targetUpdated(cppPropertiesSubstitution, target);
         targetUpdated(tasksSubstitution, target);
     });
+
+    // Load current target from settings
     configuration.init();
 
     // Register all commands
@@ -69,9 +76,6 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     statusFeedback.hide();
     statusFeedback.dispose();
-    cppPropertiesSubstitution.dispose();
-    tasksSubstitution.dispose();
-    configuration.dispose();
 }
 
 // Internal implementation
@@ -103,8 +107,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     const isLibrary: boolean = fs.existsSync(makefileDir + "/.fastarduino.library");
     
     // Get current target and programmer
-    const target: config.Target = context.workspaceState.get('fastarduino.target');
-    const board: config.Board = configuration.ALLBOARDS[target.board];
+    const target: config.Target = configuration.getCurrentTarget();
+    const board: config.Board = target.board;
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
@@ -114,8 +118,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     allTasks.push(createTask(`make clean-all -C "${makefileDir}"`, "Clean All Targets", vscode.TaskGroup.Clean, false));
     
     // Do not create upload tasks if current project is just a library
-    if (target.programmer && !isLibrary) {
-        const programmer: config.Programmer = configuration.ALLPROGRAMMERS[target.programmer];
+    if (target.programmerName && !isLibrary) {
+        const programmer: config.Programmer = target.programmer;
         command = command + 
             `DUDE_OPTION="${programmer.option}" CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
         if (target.serial) {
@@ -129,8 +133,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         if (programmer.canProgramEEPROM) {
             allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
         }
-        if (programmer.canProgramFuses && configuration.allTargets[target.tag].fuses) {
-            const fuses: config.Fuses = configuration.allTargets[target.tag].fuses;
+        if (programmer.canProgramFuses && configuration.targetSetting(target.tag).fuses) {
+            const fuses: config.Fuses = target.fuses;
             command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse}`;
             allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
         }
@@ -172,20 +176,20 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const targetSelection: string = await utils.pickItems("Select Target Board or MCU", Object.keys(configuration.allTargets).map((tag: string) => {
+    const selection: string = await utils.pickItems("Select Target Board or MCU", configuration.allUserTargets().map((tag: string) => {
         return {
             label: tag,
             description: targetDetails(tag)
         }
     }));
-    if (!targetSelection) {
+    if (!selection) {
         return;
     }
-    const target: config.TargetSetting = configuration.allTargets[targetSelection];
+    const targetSetting: config.TargetSetting = configuration.targetSetting(selection);
     
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
-    const programmer: config.Programmer = configuration.ALLPROGRAMMERS[target.programmer];
+    const programmer: config.Programmer = configuration.programmer(targetSetting.programmer);
     if (programmer.serials > 0) {
         const devices = await utils.listSerialDevices();
         if (devices && devices.length > 1) {
@@ -194,8 +198,8 @@ async function setTarget(context: vscode.ExtensionContext) {
         } else {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
-                value: target.serial || "/dev/ttyACM0",
-                valueSelection: target.serial ? undefined : [8,12]
+                value: targetSetting.serial || "/dev/ttyACM0",
+                valueSelection: targetSetting.serial ? undefined : [8,12]
             });
         }
         if (!serial) {
@@ -203,24 +207,11 @@ async function setTarget(context: vscode.ExtensionContext) {
         }
     }
 
-    statusFeedback.text = targetSelection;
-    statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
-
-    // Store to workspace state for use by other commands
-    const actualTarget: config.Target = {
-        tag: targetSelection,
-        board: target.board, 
-        frequency: target.frequency.toString() + "000000UL",
-        programmer: programmer.name, 
-        serial: serial
-    };
-    context.workspaceState.update('fastarduino.target', actualTarget);
-    targetUpdated(cppPropertiesSubstitution, actualTarget);
-    targetUpdated(tasksSubstitution, actualTarget);
+    configuration.setCurrentTarget(selection, serial);
 }
 
 function targetDetails(tag: string): string {
-    const target: config.TargetSetting = configuration.allTargets[tag];
+    const target: config.TargetSetting = configuration.targetSetting(tag);
     const frequency: string = target.frequency.toString() + "MHz";
     let description: string = `${target.board} (${frequency}) - ${target.programmer}`;
     if (target.serial) {
@@ -231,9 +222,9 @@ function targetDetails(tag: string): string {
 
 //TODO rework variables list to avoid duplicates (AVR_FREQUENCY/F_CPU)
 function targetUpdated(substitution: Substitution, target: config.Target) {
-    const board: config.Board = configuration.ALLBOARDS[target.board];
-    const programmer: config.Programmer = target.programmer && configuration.ALLPROGRAMMERS[target.programmer] || null;
-    const fuses: config.Fuses = programmer.canProgramFuses && configuration.allTargets[target.tag].fuses || null;
+    const board: config.Board = target.board;
+    const programmer: config.Programmer = target.programmer;
+    const fuses: config.Fuses = target.fuses;
     const variables: { [key: string]: string; } = {
         "VARIANT": board.variant, 
         "AVR_MCU_DEFINE": board.mcuDefine, 

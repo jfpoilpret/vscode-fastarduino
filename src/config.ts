@@ -3,17 +3,30 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-//TODO further refactoring to avoid exporting all interfaces and make ALL* and allTargets private
-// => add dedicated methods to be used by main module!
+// Current target as selected by user
+export interface Target {
+    readonly tag: string;
+    readonly boardName: string;
+    readonly frequency: string;
+    readonly programmerName: string;
+    readonly serial?: string;
 
-export class Configuration {
+    readonly board: Board;
+    readonly programmer: Programmer;
+    readonly fuses?: Fuses;
+}
+
+export class ConfigurationManager {
+    private static readonly CURRENT_TARGET: string = "fastarduino.target";
+    
     // Internal map of ALL supported targets
-    public readonly ALLBOARDS: { [key: string]: Board; };
-    public readonly ALLPROGRAMMERS: { [key: string]: Programmer; };
+    private readonly ALLBOARDS: { [key: string]: Board; };
+    private readonly ALLPROGRAMMERS: { [key: string]: Programmer; };
     // Targets list according to USER settings
-    //TODO should be readonly?
-    public allTargets: { [key: string]: TargetSetting; };
+    private allTargets: { [key: string]: TargetSetting; };
+    // Event handler
     private onChange: vscode.EventEmitter<Target> = new vscode.EventEmitter<Target>();
+
     public readonly onTargetChange: vscode.Event<Target> = this.onChange.event;
     
     public constructor(private context: vscode.ExtensionContext) {
@@ -55,6 +68,40 @@ export class Configuration {
 
     public dispose() {
         this.onChange.dispose();
+    }
+
+    public setCurrentTarget(tag: string, serial?: string) {
+        const settings: TargetSetting = this.allTargets[tag];
+        const board: Board = this.ALLBOARDS[settings.board];
+        const programmer: Programmer = this.ALLPROGRAMMERS[settings.programmer];
+        let target: Target = {
+            tag,
+            boardName: settings.board,
+            frequency: settings.frequency.toString() + "000000UL",
+            programmerName: settings.programmer,
+            serial: serial || settings.serial || null,
+            board,
+            programmer,
+            fuses: programmer.canProgramFuses && settings.fuses || null
+        };
+        this.context.workspaceState.update(ConfigurationManager.CURRENT_TARGET, target);
+        this.onChange.fire(target);
+    }
+
+    public getCurrentTarget(): Target {
+        return this.context.workspaceState.get(ConfigurationManager.CURRENT_TARGET);
+    }
+
+    public allUserTargets(): string[] {
+        return Object.keys(this.allTargets);
+    }
+
+    public targetSetting(tag: string): TargetSetting {
+        return this.allTargets[tag];
+    }
+
+    public programmer(tag: string): Programmer {
+        return this.ALLPROGRAMMERS[tag];
     }
 
     private readSettings(forceDefault?: boolean) {
@@ -100,27 +147,13 @@ export class Configuration {
             errors.push(`Invalid 'fastarduino.general' setting for 'defaultTarget': there is no defined target named '${general.defaultTarget}'!`);
         } else {
             // Check current target is still available, if not replace it!
-            const target: Target = this.context.workspaceState.get("fastarduino.target");
-            if (forceDefault || !target || Object.keys(this.allTargets).indexOf(target.tag) == -1) {
+            if (forceDefault || !this.getCurrentTarget() || Object.keys(this.allTargets).indexOf(this.getCurrentTarget().tag) == -1) {
                 // Old target is not available anymore, replace it with new default
-                const targetSelection: string = general.defaultTarget;
-                const target: TargetSetting = this.allTargets[targetSelection];
-    
-                // Store to workspace state for use by other commands
-                const actualTarget: Target = {
-                    tag: targetSelection,
-                    board: target.board, 
-                    frequency: target.frequency.toString() + "000000UL",
-                    programmer: target.programmer, 
-                    serial: target.serial
-                };
-                this.context.workspaceState.update('fastarduino.target', actualTarget);
-                this.onChange.fire(actualTarget);
+                this.setCurrentTarget(general.defaultTarget);
             }
         }
         errors.forEach((error) => { vscode.window.showWarningMessage(error); });
     }
-    
 }
 
 // Internal structure holding important definitions for one board
@@ -149,7 +182,7 @@ export interface Programmer {
 }
 
 // Maps to user settings used by current project
-export interface GeneralSetting {
+interface GeneralSetting {
     defaultTarget: string;
 }
 
@@ -158,6 +191,7 @@ export interface Fuses {
     lfuse: string;
     efuse: string;
 }
+
 export interface TargetSetting {
     board: string;
     frequency?: number;
@@ -166,11 +200,3 @@ export interface TargetSetting {
     fuses?: Fuses;
 }
 
-// Current target as selected by user
-export interface Target {
-    tag: string;
-    board: string;
-    frequency: string;
-    programmer: string;
-    serial?: string;
-}
