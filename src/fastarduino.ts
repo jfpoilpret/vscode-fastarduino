@@ -1,7 +1,5 @@
 'use strict';
 
-//TODO Refactor: externalize utilities (Substitutions, Picks, Official Boards List, User Settings...)
-
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as child_process from 'child_process';

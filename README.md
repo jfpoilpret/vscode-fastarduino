@@ -32,9 +32,14 @@ When a Target has been defined, FastArduino extension dynamically adds the follo
 
 ![RunTasks](images/vscode-fastarduino-build-upload.gif)
 
+As explained further below, FastArduino extension also allows you to substitute target information in some VSCode properties file, based on a kinf of template mechanism. The following files are targets of this mechanism:
+
+- `.vscode/c_cpp_properties.json` (generated from a `.vscode/c_cpp_properties_source.json` template file)
+- `.vscode/tasks.json` (generated from a `.vscode/tasks_source.json` template file)
+
 ## Requirements
 
-This extension currently supports only Linux and Mac platforms, but only Linux has been tested so far.
+This extension currently supports only Linux and Mac platforms.
 
 FastArduino is based on C++, hence this extension will automatically require the installation of the following VSCode extension:
 - C/C++
@@ -160,6 +165,12 @@ The list of possible targets are based on FastArduino supported targets; it is d
 No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/vscode-fastarduino/issues).
 
 ## Release Notes
+
+### 0.3.0
+
+- Fixed source file links in problems panel
+- Added variables substitution for `tasks.json` 
+- Improved extension design to simplify future enhancements
 
 ### 0.2.0
 

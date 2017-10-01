@@ -3,6 +3,11 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.3.0] - 2017-10-01
+- Fixed source file links in problems panel
+- Added variables substitution for `tasks.json` 
+- Improved extension design to simplify future enhancements
+
 ## [0.2.0] - 2017-09-26
 - Fixed bad link to project issues in README.md
 - Added automatic set of defines in `c_cpp_properties.json` matching the currently selected target
@@ -10,4 +15,3 @@ This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [0.1.0] - 2017-09-17
 - Initial release
-
