@@ -2,26 +2,23 @@
 
 //TODO Refactor: externalize utilities (Substitutions, Picks, Official Boards List, User Settings...)
 
-// The module 'vscode' contains the VS Code extensibility API
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as child_process from 'child_process';
+import * as utils from './utils';
+import * as config from './config';
+import { Configuration } from './config';
+import { Substitution } from './substitution';
 
 // Status items in status bar
 let statusFeedback: vscode.StatusBarItem;
 
-// General handling of variable substitutions in json files
-//TODO rewrite all into a class with all functions
-interface Substitution {
-    source: string;
-    destination: string;
-    template?: string;
-    watcher?: vscode.FileSystemWatcher;
-}
-
 // All files for which we need variables substitutions
 let cppPropertiesSubstitution: Substitution;
 let tasksSubstitution: Substitution;
+
+// Targets Configuration
+let configuration: Configuration;
 
 // Called when your FastArduino extension is activated (i.e. when current Workspace folder contains a .fastarduino marker file)
 export function activate(context: vscode.ExtensionContext) {
@@ -33,15 +30,24 @@ export function activate(context: vscode.ExtensionContext) {
     statusFeedback.show();
 
     // Prepare substitutions for c_cpp_properties.json and tasks.json files
-    cppPropertiesSubstitution = initSubstitution(context, "c_cpp_properties");
-    tasksSubstitution = initSubstitution(context, "tasks", false);
+    cppPropertiesSubstitution = new Substitution(context, "c_cpp_properties");
+    cppPropertiesSubstitution.onTemplateChange((s: Substitution) => {
+        targetUpdated(s, context.workspaceState.get("fastarduino.target"));
+    });
+    tasksSubstitution = new Substitution(context, "tasks", false);
+    tasksSubstitution.onTemplateChange((s) => {
+        targetUpdated(s, context.workspaceState.get("fastarduino.target"));
+    });
 
-    // Finish contruction of boards in ALLBOARDS (add links to programmers)
-    initBoardsList(context);
-    // Initialize defaults (target, serial, programmer...)
-    rebuildBoardsAndProgrammersList(context, true);
-    // auto-reload if configuration change
-    vscode.workspace.onDidChangeConfiguration(() => { rebuildBoardsAndProgrammersList(context); });
+    // Read configuration and suer settings
+    configuration = new Configuration(context);
+    configuration.onTargetChange((target: config.Target) => {
+        statusFeedback.text = target.tag;
+        statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(target.tag);
+        targetUpdated(cppPropertiesSubstitution, target);
+        targetUpdated(tasksSubstitution, target);
+    });
+    configuration.init();
 
     // Register all commands
     context.subscriptions.push(vscode.commands.registerCommand('fastarduino.setTarget', () => {
@@ -63,167 +69,13 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     statusFeedback.hide();
     statusFeedback.dispose();
-    disposeSubstitution(cppPropertiesSubstitution);
-    disposeSubstitution(tasksSubstitution);
+    cppPropertiesSubstitution.dispose();
+    tasksSubstitution.dispose();
+    configuration.dispose();
 }
 
 // Internal implementation
 //=========================
-// Internal structure holding important definitions for one board
-interface Board {
-    // The first part comes from fastarduino.json
-    name: string; 
-    frequencies: number[];
-    programmer?: string;
-    variant: string;
-    mcu: string;
-    mcuDefine: string;
-    arch: string;
-    // The following part is calculated from settings
-    programmers?: string[];
-    serial?: string;
-}
-
-// Internal structure holding important definitions for one programmer, comes from fastarduino.json
-interface Programmer {
-    name: string;
-    option: string;
-    serials: number;
-    canProgramEEPROM: boolean,
-    canProgramFuses: boolean,
-    onlyFor?: string;
-}
-
-// Internal map of ALL supported targets
-let ALLBOARDS: { [key: string]: Board; } = {};
-let ALLPROGRAMMERS: { [key: string]: Programmer; } = {};
-// Targets list according to USER settings
-let allTargets: { [key: string]: TargetSetting; } = {};
-
-// Initialize boards and programmers from fastarduino.json (only ocne at activation time)
-function initBoardsList(context: vscode.ExtensionContext) {
-    const configFile: string = context.asAbsolutePath("./fastarduino.json");
-    const config: { boards: Board[], programmers: Programmer[] } = JSON.parse(fs.readFileSync(configFile).toString());
-
-    ALLPROGRAMMERS = {};
-    let generalProgrammers: string[] = [];
-    config.programmers.forEach((programmer: Programmer) => {
-        if (programmer.onlyFor === undefined) {
-            generalProgrammers.push(programmer.name);
-        }
-        ALLPROGRAMMERS[programmer.name] = programmer;
-    });
-
-    ALLBOARDS = {};
-    config.boards.forEach((board: Board) => {
-        board.programmers = [];
-        board.programmers.push(...generalProgrammers);
-        ALLBOARDS[board.name] = board;
-    });
-
-    Object.keys(ALLPROGRAMMERS).forEach((key: string) => {
-        const target: string = ALLPROGRAMMERS[key].onlyFor;
-        if (target) {
-            ALLBOARDS[target].programmers.push(key);
-        }
-    });
-}
-
-// Maps to user settings used by current project
-interface GeneralSetting {
-    defaultTarget: string;
-}
-
-interface Fuses {
-    hfuse: string;
-    lfuse: string;
-    efuse: string;
-}
-interface TargetSetting {
-    board: string;
-    frequency?: number;
-    programmer: string;
-    serial?: string;
-    fuses?: Fuses;
-}
-
-// Current target as selected by user
-interface Target {
-    tag: string;
-    board: string;
-    frequency: string;
-    programmer: string;
-    serial?: string;
-}
-
-// Rebuild list of boards and programmers used for current project (called whenever project configuration change)
-function rebuildBoardsAndProgrammersList(context: vscode.ExtensionContext, forceDefault?: boolean) {
-    let errors: string[] = [];
-    const settings: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("fastarduino");
-    const general: GeneralSetting = settings.get("general");
-    const targets: { [tag: string]: TargetSetting } = settings.get("targets");
-    allTargets = {};
-    // Then find all boards
-    Object.keys(targets).forEach((key: string) => {
-        const setting: TargetSetting = targets[key];
-        // Check setting is correct
-        if (!ALLBOARDS[setting.board]) {
-            // Check board exists
-            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': board '${setting.board}' does not exist!`);
-        } else if (!ALLPROGRAMMERS[setting.programmer]) {
-            // Check programmer exist
-            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': programmer '${setting.programmer}' does not exist!`);
-        } else if (ALLBOARDS[setting.board].programmers.indexOf(setting.programmer) == -1) {
-            // Check programmer is allowed for board
-            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': programmer '${setting.programmer}' not available for board '${setting.board}'!`);
-        } else if (setting.frequency && ALLBOARDS[setting.board].frequencies.indexOf(setting.frequency) == -1) {
-            // Check frequency is allowed for board
-            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': frequency '${setting.frequency}' is not allowed for board '${setting.board}'!`);
-        } else if (!setting.frequency && ALLBOARDS[setting.board].frequencies.length > 1) {
-            // Check frequency is allowed for board
-            errors.push(`Invalid 'fastarduino.targets' setting for target '${key}': missing frequency '${setting.frequency}' for board '${setting.board}'!`);
-        } else {
-            // No error: add this to the validated list of targets
-            // First calculate frequency for target (if not specified)
-            let frequency: number = setting.frequency || ALLBOARDS[setting.board].frequencies[0];
-            allTargets[key] = {
-                board: setting.board,
-                frequency,
-                programmer: setting.programmer,
-                serial: setting.serial,
-                fuses: setting.fuses
-            };
-        }
-    });
-    // Then check default target
-    if (!allTargets[general.defaultTarget]) {
-        errors.push(`Invalid 'fastarduino.general' setting for 'defaultTarget': there is no defined target named '${general.defaultTarget}'!`);
-    } else {
-        // Check current target is still available, if not replace it!
-        const target: Target = context.workspaceState.get("fastarduino.target");
-        if (forceDefault || !target || Object.keys(allTargets).indexOf(target.tag) == -1) {
-            // Old target is not available anymore, replace it with new default
-            const targetSelection: string = general.defaultTarget;
-            const target: TargetSetting = allTargets[targetSelection];
-
-            statusFeedback.text = targetSelection;
-            statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
-            
-            // Store to workspace state for use by other commands
-            const actualTarget: Target = {
-                tag: targetSelection,
-                board: target.board, 
-                frequency: target.frequency.toString() + "000000UL",
-                programmer: target.programmer, 
-                serial: target.serial
-            };
-            context.workspaceState.update('fastarduino.target', actualTarget);
-            targetUpdated(actualTarget);
-        }
-    }
-    errors.forEach((error) => { vscode.window.showWarningMessage(error); });
-}
-
 function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     // Check current directory has a Makefile
     let makefileDir: string = "";
@@ -251,8 +103,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     const isLibrary: boolean = fs.existsSync(makefileDir + "/.fastarduino.library");
     
     // Get current target and programmer
-    const target: Target = context.workspaceState.get('fastarduino.target');
-    const board: Board = ALLBOARDS[target.board];
+    const target: config.Target = context.workspaceState.get('fastarduino.target');
+    const board: config.Board = configuration.ALLBOARDS[target.board];
     
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
@@ -262,7 +114,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     
     // Do not create upload tasks if current project is just a library
     if (target.programmer && !isLibrary) {
-        const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
+        const programmer: config.Programmer = configuration.ALLPROGRAMMERS[target.programmer];
         command = command + 
             `DUDE_OPTION="${programmer.option}" CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
         if (target.serial) {
@@ -276,8 +128,8 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         if (programmer.canProgramEEPROM) {
             allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
         }
-        if (programmer.canProgramFuses && allTargets[target.tag].fuses) {
-            const fuses: Fuses = allTargets[target.tag].fuses;
+        if (programmer.canProgramFuses && configuration.allTargets[target.tag].fuses) {
+            const fuses: config.Fuses = configuration.allTargets[target.tag].fuses;
             command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse}`;
             allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
         }
@@ -319,7 +171,7 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
 async function setTarget(context: vscode.ExtensionContext) {
     // Ask user to pick one target
-    const targetSelection: string = await pickItems("Select Target Board or MCU", Object.keys(allTargets).map((tag: string) => {
+    const targetSelection: string = await utils.pickItems("Select Target Board or MCU", Object.keys(config.allTargets).map((tag: string) => {
         return {
             label: tag,
             description: targetDetails(tag)
@@ -328,16 +180,16 @@ async function setTarget(context: vscode.ExtensionContext) {
     if (!targetSelection) {
         return;
     }
-    const target: TargetSetting = allTargets[targetSelection];
+    const target: config.TargetSetting = configuration.allTargets[targetSelection];
     
     // Ask user to pick serial port if programmer needs 1 or more
     let serial: string;
-    const programmer: Programmer = ALLPROGRAMMERS[target.programmer];
+    const programmer: config.Programmer = configuration.ALLPROGRAMMERS[target.programmer];
     if (programmer.serials > 0) {
-        const devices = await listSerialDevices();
+        const devices = await utils.listSerialDevices();
         if (devices && devices.length > 1) {
             //TODO set default?
-            serial = await pick("Enter Serial Device:", devices);
+            serial = await utils.pick("Enter Serial Device:", devices);
         } else {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
@@ -354,7 +206,7 @@ async function setTarget(context: vscode.ExtensionContext) {
     statusFeedback.tooltip = "Select FastArduino Target\n" + targetDetails(targetSelection);
 
     // Store to workspace state for use by other commands
-    const actualTarget: Target = {
+    const actualTarget: config.Target = {
         tag: targetSelection,
         board: target.board, 
         frequency: target.frequency.toString() + "000000UL",
@@ -362,11 +214,12 @@ async function setTarget(context: vscode.ExtensionContext) {
         serial: serial
     };
     context.workspaceState.update('fastarduino.target', actualTarget);
-    targetUpdated(actualTarget);
+    targetUpdated(cppPropertiesSubstitution, actualTarget);
+    targetUpdated(tasksSubstitution, actualTarget);
 }
 
 function targetDetails(tag: string): string {
-    const target: TargetSetting = allTargets[tag];
+    const target: config.TargetSetting = configuration.allTargets[tag];
     const frequency: string = target.frequency.toString() + "MHz";
     let description: string = `${target.board} (${frequency}) - ${target.programmer}`;
     if (target.serial) {
@@ -375,53 +228,11 @@ function targetDetails(tag: string): string {
     return description;
 }
 
-async function pick(message: string, labels: string[]) {
-    if (labels.length > 1) {
-        return await vscode.window.showQuickPick(labels, { placeHolder: message });
-    } else {
-        return labels[0];
-    }
-}
-
-async function pickItems(message: string, items: vscode.QuickPickItem[]) {
-    if (items.length > 1) {
-        const selection: vscode.QuickPickItem = await vscode.window.showQuickPick(items, { placeHolder: message });
-        return (selection ? selection.label : null);
-    } else {
-        return items[0].label;
-    }
-}
-
-const isLinux = (process.platform === "linux");
-const isMac = (process.platform === "darwin");
-const isWindows = (process.platform === "win32");
-
-async function listSerialDevices(): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-        const regex: RegExp = ( isLinux ? /^.*->\s*(.*)$/ :
-                                isMac ? /^(.*)$/ :
-                                /^.*$/);
-        const command: string = (   isLinux ? "ls -l /dev/serial/by-id" :
-                                    isMac ? "ls /dev/{tty,cu}.*" :
-                                    "");
-        child_process.exec(command, (error, stdout, stderr) => {
-            if (!error) {
-                const devices: string[] = stdout.split("\n")
-                                                .filter((value) => regex.test(value))
-                                                .map((value) => regex.exec(value)[1].replace("../../", "/dev/"));
-                resolve(devices);
-            } else {
-                reject(error.message);
-            }
-        });
-    });
-}
-
 //TODO rework variables list to avoid duplicates (AVR_FREQUENCY/F_CPU)
-function targetUpdated(target: Target) {
-    const board: Board = ALLBOARDS[target.board];
-    const programmer: Programmer = target.programmer && ALLPROGRAMMERS[target.programmer] || null;
-    const fuses: Fuses = programmer.canProgramFuses && allTargets[target.tag].fuses || null;
+function targetUpdated(substitution: Substitution, target: config.Target) {
+    const board: config.Board = configuration.ALLBOARDS[target.board];
+    const programmer: config.Programmer = target.programmer && configuration.ALLPROGRAMMERS[target.programmer] || null;
+    const fuses: config.Fuses = programmer.canProgramFuses && configuration.allTargets[target.tag].fuses || null;
     const variables: { [key: string]: string; } = {
         "VARIANT": board.variant, 
         "AVR_MCU_DEFINE": board.mcuDefine, 
@@ -439,82 +250,6 @@ function targetUpdated(target: Target) {
         "EFUSE": fuses && fuses.efuse || null
     };
     // Put all variables in ono command line option variable
-    variables["FA_MAKE_OPTIONS"] = makeOptions(variables);
-    performSubstitution(cppPropertiesSubstitution, variables);
-    performSubstitution(tasksSubstitution, variables);
-}
-
-function makeOptions(variables: { [key: string]: string; }): string {
-    let options = "";
-    Object.keys(variables).forEach((key: string) => {
-        const value: string = variables[key];
-        if (value !== null) {
-            options = `${options} ${key}=${value}`;
-        }
-    });
-    return options;
-}
-
-// Generic substitution functions
-//================================
-function initSubstitution(context: vscode.ExtensionContext, name: string, warning: boolean = true): Substitution {
-    const currentFolder: string = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    let destination = currentFolder + `/.vscode/${name}.json`;
-    let source = currentFolder + `/.vscode/${name}_source.json`;
-    // Read source file content
-    if (!fs.existsSync(source)) {
-        if (warning) {
-            vscode.window.showErrorMessage(`Missing file '${source}'! Defining this file is recommended.`);
-        }
-        return {
-            source,
-            destination,
-            template: null
-        };
-    } else {
-        let watcher: vscode.FileSystemWatcher = vscode.workspace.createFileSystemWatcher(source);
-        let substitution: Substitution = {
-            source,
-            destination,
-            template: fs.readFileSync(source).toString(),
-            watcher
-        };
-        let callback = function() {
-            substitution.template = fs.readFileSync(source).toString();
-            targetUpdated(context.workspaceState.get("fastarduino.target"));
-        };
-        watcher.onDidChange(callback);
-        watcher.onDidCreate(callback);
-        watcher.onDidDelete(callback);
-        return substitution;
-    }
-}
-
-function disposeSubstitution(substitution: Substitution) {
-    if (substitution && substitution.watcher) {
-        substitution.watcher.dispose();
-        substitution.watcher = null;
-    }
-}
-
-function substitute(template: string, substitutions: { [key: string]: string; }) {
-    let output: string = null;
-    if (template) {
-        output = template;
-        Object.keys(substitutions).forEach((key: string) => {
-            const value: string = substitutions[key];
-            // Substitute only if not null
-            if (value !== null) {
-                // NOTE: split/join is one way to replace ALL occurrences of a string (string.replace() works only for one occurrence)
-                output = output.split("${" + key + "}").join(value);
-            }
-        });
-    }
-    return output;
-}
-
-function performSubstitution(substitution: Substitution, substitutes: { [key: string]: string; }) {
-    if (substitution && substitution.template) {
-        fs.writeFileSync(substitution.destination, substitute(substitution.template, substitutes));
-    }
+    variables["FA_MAKE_OPTIONS"] = utils.aggregateVariables(variables);
+    substitution.substitute(variables);
 }
