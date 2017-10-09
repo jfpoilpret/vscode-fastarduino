@@ -24,15 +24,19 @@ As seen in the animation above, the list of available targets is defined in VS C
 
 When a Target has been defined, FastArduino extension dynamically adds the following tasks to the Workspace Folder:
 
-- **FastArduino: Build** builds the current project into a binary ready for upload; this may also generate an EEPROM file that can be further uploaded by the task "FastArduino: EEPROM"
+- **FastArduino: Build** builds the current project into a binary ready for upload; this may also generate an EEPROM file that can be further uploaded by the task "FastArduino: Program EEPROM"
 - **FastArduino: Clean** cleans all object and binary files created by a previous build
-- **FastArduino: Flash** uploads (and builds if needed) the application code from the current project to the specified target
-- **FastArduino: EEPROM** uploads (and builds if needed) the EEPROM values (extracted from source code) to the specified target; this task may not be available to all targets
-- **FastArduino: Fuses** reprograms fuses of the specified target; fuses values must be defined in the project settings (see below)
+- **FastArduino: Upload Flash** uploads (and builds if needed) the application code from the current project to the specified target
+- **FastArduino: Program EEPROM** uploads (and builds if needed) the EEPROM values (extracted from source code) to the specified target; this task may not be available to all targets
+- **FastArduino: Program Fuses** reprograms fuses of the specified target; fuses values must be defined in the project settings (see below)
 
 ![RunTasks](images/vscode-fastarduino-build-upload.gif)
 
-As explained further below, FastArduino extension also allows you to substitute target information in some VSCode properties file, based on a kinf of template mechanism. The following files are targets of this mechanism:
+FastArduino extension also adds one task to the Workspace Folder, independently of any target selected:
+
+- **FastArduino: Clean All Targets** cleans all object and binary files created by a previous build, for all targets
+
+As explained further below, FastArduino extension also allows you to substitute target information in some VSCode properties files, based on a kind of template mechanism. The following files are targets of this mechanism:
 
 - `.vscode/c_cpp_properties.json` (generated from a `.vscode/c_cpp_properties_source.json` template file)
 - `.vscode/tasks.json` (generated from a `.vscode/tasks_source.json` template file)
@@ -75,7 +79,7 @@ Then, the C/C++ extension must be properly configured for your workspace to use 
 
 In this example, `~/avr8-gnu-toolchain-linux_x86_64/` must be changed to the location of the AVR toolchain. This sample also supposes that FastArduino library is checked out at the same level as your project.
 
-Note that `c_cpp_properties_source.json` is not the actual file expected by the C++ extension; in fact this file is used as a "template" by VSCode fastArduino extension to generate the actual `c_cpp_properties.json` used by C++ extension.
+Note that `c_cpp_properties_source.json` is not the actual file expected by the C++ extension; in fact this file is used as a "template" by VSCode FastArduino extension to generate the actual `c_cpp_properties.json` used by C++ extension.
 
 In the above example, 3 specific properties are defined in the `defines` array:
 - `${VARIANT}`
@@ -154,7 +158,7 @@ Here is an example of settings with 2 targets:
 
 Note that for AVR MCU targets, you need to specify their frequency (expressed in MHz).
 
-Specifiying a serial device is optional: when one is needed, you will be required to input it by hand; for some programmers (e.g. the ArduinoISP prgorammer), no serial device is needed, they get automatically recognized by your system.
+Specifiying a serial device is optional: when one is needed, you will be required to input it by hand; for some programmers (e.g. the ArduinoISP programmer), no serial device is needed, they get automatically recognized by your system.
 
 In addition, you may define values for the MCU fuses that you may program with the task "FastArduino: Program Fuses".
 
