@@ -151,7 +151,6 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
             allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
         }
     }
-    
     return allTasks;
 }
 
@@ -166,7 +165,12 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
         kind: label
     };
     // Create task invoking make command in the right directory and using the right problem matcher
+    //TODO use latest 1.17 Task API: not sure what to use as 2nd argument
+    // This shall probably change once multi workspace gets official in VSCode
     let task = new vscode.Task( definition, 
+                                // vscode.TaskScope.Workspace,  // FAILS
+                                // vscode.TaskScope.Global,     // FAILS
+                                vscode.workspace.workspaceFolders[0],
                                 label, 
                                 "FastArduino", 
                                 new vscode.ShellExecution(command), 
@@ -180,8 +184,8 @@ function createTask(command: string, label: string, group: vscode.TaskGroup | nu
         reveal: vscode.TaskRevealKind.Always, 
         focus: false, 
         panel: vscode.TaskPanelKind.Shared};
-    //TODO check what value we should set here
-    // task.isBackground = true;
+    // NOTE I am not sure whether making it a background task is really useful
+    task.isBackground = true;
     return task;
 }
 
@@ -203,11 +207,14 @@ async function setTarget(context: vscode.ExtensionContext) {
     let serial: string;
     const programmer: config.Programmer = configuration.programmer(targetSetting.programmer);
     if (programmer.serials > 0) {
-        const devices = await utils.listSerialDevices();
-        if (devices && devices.length > 1) {
-            //TODO set default?
+        let devices:string[] = await utils.listSerialDevices();
+        let askOther = true;
+        if (devices) {
+            devices.push("other...");
             serial = await utils.pick("Enter Serial Device:", devices);
-        } else {
+            askOther = (serial === "other...");
+        }
+        if (askOther) {
             serial = await vscode.window.showInputBox({
                 prompt: "Enter Serial Device:",
                 value: targetSetting.serial || "/dev/ttyACM0",
