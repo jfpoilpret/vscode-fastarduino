@@ -50,6 +50,10 @@ FastArduino is based on C++, hence this extension will automatically require the
 
 FastArduino relies on [AVR toolchain](http://www.atmel.com/tools/ATMELAVRTOOLCHAINFORLINUX.aspx) for building, hence it must be installed on your machine and added to the `$PATH`.
 
+To properly activate for a Workspace, this extension will search for the existence of a `.fastarduino` file located at your Workspace root directory.
+
+If your project Workspace is a library (rather than an uploadable application), you can add a `.fastarduino.library` file at the Workspace root directory; this serves as a marker file for this extension, so that only "FastArduino: Build" and "FastArduino: Clean" tasks will be added, as any of the "Upload" tasks would not be relevant for a library.
+
 Then, the C/C++ extension must be properly configured for your workspace to use AVR toolchain, through the `c_cpp_properties_source.json` file which shall contain, e.g. for Linux:
 
     {
@@ -169,6 +173,15 @@ The list of possible targets are based on FastArduino supported targets; it is d
 No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/vscode-fastarduino/issues).
 
 ## Release Notes
+
+### 0.4.0
+
+- Now supports only VSCode 1.17 and above
+- Extension is not a preview anymore
+- Improved serial selection to always allow direct input by selecting "Other..."
+- Improved README documentation (mention `.fastarduino` special marker file)
+- Uses new VSCode 1.17 Task API
+- Added ASL2.0 license and copyright headers to source code files
 
 ### 0.3.0
 
