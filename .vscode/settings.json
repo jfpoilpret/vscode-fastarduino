@@ -6,5 +6,21 @@
     "search.exclude": {
         "out": true // set this to false to include "out" folder in search results
     },
-    "todohighlight.keywords": ["TODO", "FIXME"]
+    "todohighlight.keywords": [
+        "TODO",
+        "FIXME"
+    ],
+    "todohighlight.exclude": [
+        "out/**",
+        "**/node_modules/**",
+        "**/bower_components/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/.vscode/**",
+        "**/.github/**",
+        "**/_output/**",
+        "**/*.min.*",
+        "**/*.map",
+        "**/.next/**"
+    ]
 }
