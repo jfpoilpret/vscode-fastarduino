@@ -3,6 +3,14 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.4.0] - 2017-11-05
+- Now supports only VSCode 1.17 and above
+- Extension is not a preview anymore
+- Improved serial selection to always allow direct input by selecting "Other..."
+- Improved README documentation (mention `.fastarduino` special marker file)
+- Uses new VSCode 1.17 Task API
+- Added ASL2.0 license and copyright headers to source code files
+
 ## [0.3.0] - 2017-10-01
 - Fixed source file links in problems panel
 - Added variables substitution for `tasks.json` 
