@@ -4,6 +4,7 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [0.5.0] - Not released yet
+- Fixed issue with "Program Fuses" task: generated make command was wrong
 - Added support for ATtinyX5 (to fit FastArduino latest support)
 - Updated copyright headers
 

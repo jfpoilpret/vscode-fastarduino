@@ -147,7 +147,7 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
         }
         if (programmer.canProgramFuses && configuration.targetSetting(target.tag).fuses) {
             const fuses: config.Fuses = target.fuses;
-            command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse}`;
+            command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse} `;
             allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
         }
     }
