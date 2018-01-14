@@ -51,6 +51,14 @@
 			"mcu": "attiny84",
 			"mcuDefine": "__AVR_ATtiny84A__",
 			"arch": "avr25"
+		},
+		{
+			"name": "ATtinyX5",
+			"frequencies": [8],
+			"variant": "BREADBOARD_ATTINYX5",
+			"mcu": "attiny85",
+			"mcuDefine": "__AVR_ATtiny85A__",
+			"arch": "avr25"
 		}
 	],
 	"programmers": [

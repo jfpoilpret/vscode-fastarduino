@@ -3,6 +3,10 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.5.0] - Not released yet
+- Added support for ATtinyX5 (to fit FastArduino latest support)
+- Updated copyright headers
+
 ## [0.4.0] - 2017-11-05
 - Now supports only VSCode 1.17 and above
 - Extension is not a preview anymore
