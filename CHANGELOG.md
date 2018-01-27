@@ -3,7 +3,7 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [0.5.0] - Not released yet
+## [0.5.0] - 2018-01-27
 - Fixed issue with "Program Fuses" task: generated make command was wrong
 - Fixed issue when selecting a board needing a serial device choice but no device is currently connected
 - Added support for ATtinyX5 (to fit FastArduino latest support)
