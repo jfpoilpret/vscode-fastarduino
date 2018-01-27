@@ -174,6 +174,13 @@ No issues have been reported sofar, but any problem or request for enhancement c
 
 ## Release Notes
 
+### 0.5.0
+
+- Fixed issue with "Program Fuses" task: generated make command was wrong
+- Fixed issue when selecting a board needing a serial device choice but no device is currently connected
+- Added support for ATtinyX5 (to fit FastArduino latest support)
+- Updated copyright headers
+
 ### 0.4.0
 
 - Now supports only VSCode 1.17 and above

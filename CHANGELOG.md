@@ -5,6 +5,7 @@ This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [0.5.0] - Not released yet
 - Fixed issue with "Program Fuses" task: generated make command was wrong
+- Fixed issue when selecting a board needing a serial device choice but no device is currently connected
 - Added support for ATtinyX5 (to fit FastArduino latest support)
 - Updated copyright headers
 

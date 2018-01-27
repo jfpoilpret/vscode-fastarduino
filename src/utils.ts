@@ -53,7 +53,10 @@ export async function listSerialDevices(): Promise<string[]> {
                                                 .map((value) => regex.exec(value)[1].replace("../../", "/dev/"));
                 resolve(devices);
             } else {
-                reject(error.message);
+                // show a warning
+                vscode.window.showWarningMessage("Error listing current serial devices: " + error.message);
+                // go ahead normally with an empty list of devices
+                resolve([]);
             }
         });
     });
