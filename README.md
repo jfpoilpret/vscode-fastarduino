@@ -66,7 +66,7 @@ Then, the C/C++ extension must be properly configured for your workspace to use 
                     "${workspaceRoot}/../fast-arduino-lib/cores",
                     "${workspaceRoot}"
                 ],
-                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}"],
+                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}" ${DEFINES}],
                 "intelliSenseMode": "clang-x64",
                 "browse": {
                     "path": [
@@ -85,10 +85,11 @@ In this example, `~/avr8-gnu-toolchain-linux_x86_64/` must be changed to the loc
 
 Note that `c_cpp_properties_source.json` is not the actual file expected by the C++ extension; in fact this file is used as a "template" by VSCode FastArduino extension to generate the actual `c_cpp_properties.json` used by C++ extension.
 
-In the above example, 3 specific properties are defined in the `defines` array:
+In the above example, 4 specific properties are defined in the `defines` array:
 - `${VARIANT}`
 - `${AVR_FREQUENCY}`
 - `${AVR_MCU_DEFINE}`
+- `${DEFINES}` this one will contain any additional defines (set in target configuration) to be passed to the compiler
 
 These properties will be automatically replaced by the actual values for the selected target. This will help the C++ extension parse your code with the correct defines for the target you use. You may add your own defines if you need, but you should keep those 3 existing defines here.
 
@@ -104,7 +105,7 @@ For Macintosh, you would normally use the following configuration, here based on
                     "${workspaceRoot}/../fast-arduino-lib/cores",
                     "${workspaceRoot}"
                 ],
-                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}"],
+                "defines": ["${VARIANT}", "F_CPU=${AVR_FREQUENCY}", "${AVR_MCU_DEFINE}" ${DEFINES}],
                 "intelliSenseMode": "clang-x64",
                 "browse": {
                     "path": [
@@ -146,7 +147,8 @@ Here is an example of settings with 2 targets:
         "Prototype": {
             "board": "Arduino UNO",
             "programmer": "UNO USB",
-            "serial": "/dev/ttyACM0"
+            "serial": "/dev/ttyACM0",
+            "defines": ["DEBUG"]
         },
         "Product": {
             "board": "ATmega328",
@@ -166,6 +168,8 @@ Specifiying a serial device is optional: when one is needed, you will be require
 
 In addition, you may define values for the MCU fuses that you may program with the task "FastArduino: Program Fuses".
 
+Finally, you can optionally set some extra `defines` that will be passed to the compiler command-line (with `-D` option).
+
 The list of possible targets are based on FastArduino supported targets; it is defined in the extension's [`fastarduino.json`](https://github.com/jfpoilpret/vscode-fastarduino/blob/master/fastarduino.json).
 
 ## Known Issues
@@ -173,6 +177,11 @@ The list of possible targets are based on FastArduino supported targets; it is d
 No issues have been reported sofar, but any problem or request for enhancement can be submitted to [the project site on GitHub](https://github.com/jfpoilpret/vscode-fastarduino/issues).
 
 ## Release Notes
+
+### 0.6.0
+
+- Added possibility to set extra defines, for compiler, in target configuration
+- Added possibility to set extra compiler or linker options in target configuration
 
 ### 0.5.0
 

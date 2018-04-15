@@ -2,7 +2,7 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
@@ -110,6 +110,24 @@
                                     }
                                 },
                                 "required": ["hfuse", "lfuse", "efuse"]
+                            },
+                            "defines": {
+                                "description": "Optional additional defines to be passed to compiler",
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                    "description": "Additional define in the form 'XXX=YYY' or 'XXX'",
+                                    "type": "string",
+                                    "pattern": "([A-Za-z_][0-9A-Za-z_]*)(=.+)?"
+                                }
+                            },
+                            "compilerOptions": {
+                                "description": "Optional compiler options",
+                                "type": "string"
+                            },
+                            "linkerOptions": {
+                                "description": "Optional linker options",
+                                "type": "string"
                             }
                         },
                         "required": ["board", "programmer"]

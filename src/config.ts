@@ -28,6 +28,10 @@ export interface Target {
     readonly board: Board;
     readonly programmer: Programmer;
     readonly fuses?: Fuses;
+
+    readonly defines?: string[];
+    readonly compilerOptions?: string;
+    readonly linkerOptions?: string;
 }
 
 export class ConfigurationManager {
@@ -96,7 +100,10 @@ export class ConfigurationManager {
             serial: serial || settings.serial || null,
             board,
             programmer,
-            fuses: programmer.canProgramFuses && settings.fuses || null
+            fuses: programmer.canProgramFuses && settings.fuses || null,
+            defines: settings.defines,
+            compilerOptions: settings.compilerOptions,
+            linkerOptions: settings.linkerOptions
         };
         this.context.workspaceState.update(ConfigurationManager.CURRENT_TARGET, target);
         this.onChange.fire(target);
@@ -152,7 +159,10 @@ export class ConfigurationManager {
                     frequency,
                     programmer: setting.programmer,
                     serial: setting.serial,
-                    fuses: setting.fuses
+                    fuses: setting.fuses,
+                    defines: setting.defines,
+                    compilerOptions: setting.compilerOptions,
+                    linkerOptions: setting.linkerOptions
                 };
             }
         });
@@ -212,5 +222,8 @@ export interface TargetSetting {
     programmer: string;
     serial?: string;
     fuses?: Fuses;
+    defines?: string[];
+    compilerOptions?: string;
+    linkerOptions?: string;
 }
 

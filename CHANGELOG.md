@@ -3,6 +3,10 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.0] - 2018-04-15
+- Added possibility to set extra defines, for compiler, in target configuration
+- Added possibility to set extra compiler or linker options in target configuration
+
 ## [0.5.0] - 2018-01-27
 - Fixed issue with "Program Fuses" task: generated make command was wrong
 - Fixed issue when selecting a board needing a serial device choice but no device is currently connected

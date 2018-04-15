@@ -125,6 +125,15 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
     // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
     let allTasks: vscode.Task[] = [];
     let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
+    let options: string = "";
+    if (target.defines)
+        options = target.defines.map(value => "-D" + value).join(" ");
+    if (target.compilerOptions)
+        options = options + " " + target.compilerOptions;
+    if (options)
+        command = command + `ADDITIONAL_CXX_OPTIONS="${options}" `;
+    if (target.linkerOptions)
+        command = command + `ADDITIONAL_LD_OPTIONS="${target.linkerOptions}" `;
     allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
     allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
     allTasks.push(createTask(`make clean-all -C "${makefileDir}"`, "Clean All Targets", vscode.TaskGroup.Clean, false));
@@ -244,6 +253,8 @@ function targetUpdated(substitution: Substitution, target: config.Target) {
     const board: config.Board = target.board;
     const programmer: config.Programmer = target.programmer;
     const fuses: config.Fuses = target.fuses;
+    // Aggregate all defines and compiler options
+    const defines: string = target.defines && (", " + target.defines.map(value => '"' + value + '"').join(", "));
     const variables: { [key: string]: string; } = {
         "VARIANT": board.variant, 
         "AVR_MCU_DEFINE": board.mcuDefine, 
@@ -258,9 +269,12 @@ function targetUpdated(substitution: Substitution, target: config.Target) {
         "CAN_PROGRAM_FUSES": programmer && programmer.canProgramFuses && "true" || null,
         "HFUSE": fuses && fuses.hfuse || null,
         "LFUSE": fuses && fuses.lfuse || null,
-        "EFUSE": fuses && fuses.efuse || null
+        "EFUSE": fuses && fuses.efuse || null,
+        "DEFINES": defines || "",
+        "ADDITIONAL_CXX_OPTIONS": target.compilerOptions && `'${target.compilerOptions}'` || null,
+        "ADDITIONAL_LD_OPTIONS": target.linkerOptions && `'${target.linkerOptions}'` || null
     };
-    // Put all variables in ono command line option variable
+    // Put all variables in one command line option variable
     variables["FA_MAKE_OPTIONS"] = utils.aggregateVariables(variables);
     substitution.substitute(variables);
 }
