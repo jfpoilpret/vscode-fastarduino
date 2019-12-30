@@ -178,6 +178,10 @@ No issues have been reported sofar, but any problem or request for enhancement c
 
 ## Release Notes
 
+### 0.7.0
+
+- Added support for USBtinyISP and ArduinoISPorg (old ArduinoISP, originally from arduino.org) programmers
+
 ### 0.6.0
 
 - Added possibility to set extra defines, for compiler, in target configuration

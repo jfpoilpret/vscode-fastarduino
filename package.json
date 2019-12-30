@@ -2,17 +2,20 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
     },
     "license": "SEE LICENSE IN LICENSE-2.0.txt",
     "engines": {
-        "vscode": "^1.17.0"
+        "vscode": "^1.41.0"
     },
     "preview": false,
-    "os": ["linux", "darwin"],
+    "os": [
+        "linux",
+        "darwin"
+    ],
     "repository": {
         "type": "git",
         "url": "https://github.com/jfpoilpret/vscode-fastarduino"
@@ -47,7 +50,9 @@
                             "type": "string"
                         }
                     },
-                    "required": ["defaultTarget"]
+                    "required": [
+                        "defaultTarget"
+                    ]
                 },
                 "fastarduino.targets": {
                     "description": "Named Targets (Board or MCU) to be made available.",
@@ -84,6 +89,8 @@
                                     "LEONARDO USB",
                                     "MEGA USB",
                                     "ArduinoISP.cc",
+                                    "ArduinoISP.org",
+                                    "USBtinyISP",
                                     "ISP Shield"
                                 ]
                             },
@@ -109,7 +116,11 @@
                                         "pattern": "0x[0-9A-Fa-f][0-9A-Fa-f]"
                                     }
                                 },
-                                "required": ["hfuse", "lfuse", "efuse"]
+                                "required": [
+                                    "hfuse",
+                                    "lfuse",
+                                    "efuse"
+                                ]
                             },
                             "defines": {
                                 "description": "Optional additional defines to be passed to compiler",
@@ -130,7 +141,10 @@
                                 "type": "string"
                             }
                         },
-                        "required": ["board", "programmer"]
+                        "required": [
+                            "board",
+                            "programmer"
+                        ]
                     }
                 }
             }
@@ -145,7 +159,9 @@
             {
                 "name": "avrgcc",
                 "owner": "fastarduino",
-                "fileLocation": ["absolute"],
+                "fileLocation": [
+                    "absolute"
+                ],
                 "pattern": {
                     "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
                     "file": 1,
@@ -158,16 +174,21 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "tsc -p ./",
-        "compile": "tsc -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "node ./node_modules/vscode/bin/test"
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile",
+        "test": "node ./out/src/test/runTest.js"
     },
     "devDependencies": {
-        "typescript": "^2.0.3",
-        "vscode": "^1.0.0",
-        "mocha": "^2.3.3",
-        "@types/node": "^6.0.40",
-        "@types/mocha": "^2.2.32"
+        "@types/glob": "^7.1.1",
+        "@types/mocha": "^5.2.7",
+        "@types/node": "^12.11.7",
+        "@types/vscode": "^1.41.0",
+        "glob": "^7.1.5",
+        "mocha": "^6.2.2",
+        "typescript": "^3.6.4",
+        "tslint": "^5.20.0",
+        "vscode-test": "^1.2.2"
     }
 }

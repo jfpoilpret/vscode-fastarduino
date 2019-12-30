@@ -107,6 +107,20 @@
 			"canProgramEEPROM": true,
 			"canProgramFuses": true,
 			"serials": 0
+		},
+		{
+			"name": "ArduinoISP.org",
+			"option": "-c arduinoisporg",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
+			"serials": 0
+		},
+		{
+			"name": "USBtinyISP",
+			"option": "-c usbtiny",
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
+			"serials": 0
 		}
 	]
 }
