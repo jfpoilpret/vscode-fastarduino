@@ -48,7 +48,9 @@
             },
             {
                 "type": "fastarduino",
-                "required": ["command"],
+                "required": [
+                    "command"
+                ],
                 "properties": {
                     "command": {
                         "type": "string",
@@ -61,7 +63,7 @@
                             "fuses"
                         ],
                         "description": "The FastArduino command to execute on current directory"
-                   }
+                    }
                 }
             }
         ],
