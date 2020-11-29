@@ -178,6 +178,12 @@ No issues have been reported sofar, but any problem or request for enhancement c
 
 ## Release Notes
 
+### 0.8.0
+
+- Updated to use VSCode 1.50 API and removed deprecated API calls
+- Refactored task provisioning in order to support fastarduino tasks in tasks.json
+- Removed output errors when using menu "Run Task..." and selecting "Show All Tasks..."
+
 ### 0.7.0
 
 - Added support for USBtinyISP and ArduinoISPorg (old ArduinoISP, originally from arduino.org) programmers

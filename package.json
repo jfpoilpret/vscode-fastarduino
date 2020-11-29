@@ -2,24 +2,28 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
     },
     "license": "SEE LICENSE IN LICENSE-2.0.txt",
+    "homepage": "https://github.com/jfpoilpret/vscode-fastarduino",
+    "bugs": {
+        "url": "https://github.com/jfpoilpret/vscode-fastarduino/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jfpoilpret/vscode-fastarduino"
+    },
     "engines": {
-        "vscode": "^1.41.0"
+        "vscode": "^1.50.0"
     },
     "preview": false,
     "os": [
         "linux",
         "darwin"
     ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/jfpoilpret/vscode-fastarduino"
-    },
     "categories": [
         "Other"
     ],
@@ -27,6 +31,7 @@
         "fastarduino",
         "avr",
         "framework",
+        "platform",
         "arduino"
     ],
     "extensionDependencies": [
@@ -37,6 +42,29 @@
     ],
     "main": "./out/src/fastarduino",
     "contributes": {
+        "taskDefinitions": [
+            {
+                "type": "FastArduino"
+            },
+            {
+                "type": "fastarduino",
+                "required": ["command"],
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "enum": [
+                            "build",
+                            "clean",
+                            "clean-all-targets",
+                            "flash",
+                            "eeprom",
+                            "fuses"
+                        ],
+                        "description": "The FastArduino command to execute on current directory"
+                   }
+                }
+            }
+        ],
         "configuration": {
             "title": "FastArduino Configuration",
             "type": "object",

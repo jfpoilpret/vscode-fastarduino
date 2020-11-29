@@ -1,4 +1,4 @@
-//   Copyright 2017-2018 Jean-Francois Poilpret
+//   Copyright 2017-2020 Jean-Francois Poilpret
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -74,12 +74,21 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     // Register a TaskProvider to assign dynamic tasks based on context (board target, serial port, programmer...)
-    context.subscriptions.push(vscode.workspace.registerTaskProvider('fastarduino', {
+    context.subscriptions.push(vscode.tasks.registerTaskProvider('fastarduino', {
         provideTasks() {
             return createTasks(context);
         },
         resolveTask(task: vscode.Task) {
-            return undefined;
+            // First check that this is a fastarduino task (you never know)
+            if ((!task) || task.definition.type !== 'fastarduino') {
+                return undefined;
+            }
+            const definition: vscode.TaskDefinition = task.definition;
+            const command: string = buildCommand(context, definition.command);
+            if (command) {
+                task.execution = new vscode.ShellExecution(command);
+            }
+            return task;
         }
     }));
 }
@@ -93,6 +102,116 @@ export function deactivate() {
 // Internal implementation
 //=========================
 function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
+    // Check current directory has a Makefile
+    const makefileDir: string = findMakefileDir(context);
+    if (!makefileDir) {
+        return [];
+    }
+
+    // Check if the project is an application or a library (different make targets)
+    const isLibrary: boolean = fs.existsSync(makefileDir + "/.fastarduino.library");
+    
+    // Get current target and programmer
+    const target: config.Target = configuration.getCurrentTarget();
+    const command: string = buildBaseCommand(makefileDir, target);
+
+    // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
+    let allTasks: vscode.Task[] = [];
+    allTasks.push(createBuildTask(command));
+    allTasks.push(createCleanTask(command));
+    allTasks.push(createCleanAllTask(makefileDir));
+    
+    // Do not create upload tasks if current project is just a library
+    const hasProgrammer: boolean = target.programmerName && !isLibrary;
+    if (hasProgrammer) {
+        const programmerCommand = buildProgrammerCommand(command, target);
+        allTasks.push(createFlashTask(programmerCommand));
+        let task: vscode.Task = undefined;
+        task = createEepromTask(programmerCommand, target.programmer);
+        if (task) {
+            allTasks.push(task);
+        }
+        task = createFusesTask(programmerCommand, target);
+        if (task) {
+            allTasks.push(task);
+        }
+    }
+    return allTasks;
+}
+
+// What additional properties a FastArduino task in tasks.json must absolutely include
+interface FastArduinoTaskDefinition extends vscode.TaskDefinition {
+    command: string;
+}
+
+// Utilities to create tasks of each type
+function createBuildTask(command: string): vscode.Task {
+    return createTask(command + "build", "build", "Build", vscode.TaskGroup.Build, true);
+}
+
+function createCleanTask(command: string): vscode.Task {
+    return createTask(command + "clean", "clean", "Clean", vscode.TaskGroup.Clean, false);
+}
+
+function createCleanAllTask(makefileDir: string): vscode.Task {
+    return createTask(`make clean-all -C "${makefileDir}"`, "clean-all-targets", "Clean All Targets", vscode.TaskGroup.Clean, false);
+}
+
+function createFlashTask(command: string): vscode.Task {
+    return createTask(command + "flash", "flash", "Upload Flash", null, false);
+}
+
+function createEepromTask(command: string, programmer: config.Programmer): vscode.Task {
+    if (programmer.canProgramEEPROM) {
+        return createTask(command + "eeprom", "eeprom", "Program EEPROM", null, false);
+    }
+    return undefined;
+}
+
+function createFusesTask(command: string, target: config.Target): vscode.Task {
+    const programmer: config.Programmer = target.programmer;
+    if (programmer.canProgramFuses && configuration.targetSetting(target.tag).fuses) {
+        const fuses: config.Fuses = target.fuses;
+        command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse} `;
+        return createTask(command + "fuses", "fuses", "Program Fuses", null, false);
+    }
+    return undefined;
+}
+
+// General Task creator
+function createTask(command: string, abbreviation: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
+    // Create specific TaskDefinition
+    const definition: FastArduinoTaskDefinition = {
+        type: "fastarduino",
+        command: abbreviation
+    };
+    // Create task invoking make command in the right directory and using the right problem matcher
+    //TODO use latest 1.17 Task API: not sure what to use as 2nd argument
+    // This shall probably change once multi workspace gets official in VSCode
+    let task = new vscode.Task( definition, 
+                                // vscode.TaskScope.Workspace,  // FAILS
+                                // vscode.TaskScope.Global,     // FAILS
+                                vscode.workspace.workspaceFolders[0],
+                                label, 
+                                "fastarduino", 
+                                new vscode.ShellExecution(command), 
+                                matcher ? ["$avrgcc"] : []);
+    // Also set group and presentation
+    if (group) {
+        task.group = group;
+    }
+    task.presentationOptions = {
+        echo: true, 
+        reveal: vscode.TaskRevealKind.Always, 
+        focus: false, 
+        panel: vscode.TaskPanelKind.Shared
+    };
+    task.isBackground = false;
+    return task;
+}
+
+// Utility to find a Makefile in current conetxt directory
+function findMakefileDir(context: vscode.ExtensionContext): string {
     // Check current directory has a Makefile
     let makefileDir: string = "";
     if (vscode.workspace.workspaceFolders && vscode.window.activeTextEditor) {
@@ -111,91 +230,99 @@ function createTasks(context: vscode.ExtensionContext): vscode.Task[] {
             }
         } while (dirs.length);
     }
+    return makefileDir;
+}
+
+// Utility used by TaskResolver to buold shell command string for a given task (define di tasks.json)
+function buildCommand(context: vscode.ExtensionContext, abbreviation: string): string {
+    const makefileDir: string = findMakefileDir(context);
     if (!makefileDir) {
-        return [];
+        return undefined;
     }
 
-    // Check if the project is an application or a library (different make targets)
     const isLibrary: boolean = fs.existsSync(makefileDir + "/.fastarduino.library");
-    
-    // Get current target and programmer
     const target: config.Target = configuration.getCurrentTarget();
-    const board: config.Board = target.board;
-    
-    // Build several Tasks: Build, Clean, Flash, Eeprom, Fuses
-    let allTasks: vscode.Task[] = [];
-    let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
-    let options: string = "";
-    if (target.defines)
-        options = target.defines.map(value => "-D" + value).join(" ");
-    if (target.compilerOptions)
-        options = options + " " + target.compilerOptions;
-    if (options)
-        command = command + `ADDITIONAL_CXX_OPTIONS="${options}" `;
-    if (target.linkerOptions)
-        command = command + `ADDITIONAL_LD_OPTIONS="${target.linkerOptions}" `;
-    allTasks.push(createTask(command + "build", "Build", vscode.TaskGroup.Build, true));
-    allTasks.push(createTask(command + "clean", "Clean", vscode.TaskGroup.Clean, false));
-    allTasks.push(createTask(`make clean-all -C "${makefileDir}"`, "Clean All Targets", vscode.TaskGroup.Clean, false));
-    
-    // Do not create upload tasks if current project is just a library
-    if (target.programmerName && !isLibrary) {
-        const programmer: config.Programmer = target.programmer;
-        command = command + 
-            `DUDE_OPTION="${programmer.option}" CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
-        if (target.serial) {
-            command = command + `DUDE_SERIAL=${target.serial} `;
+
+    const hasProgrammer: boolean = target.programmerName && !isLibrary;
+    const programmer: config.Programmer = target.programmer;
+
+    const command: string = buildBaseCommand(makefileDir, target);
+    const programmerCommand: string = buildProgrammerCommand(command, target);
+
+    // Check a programmer is defined for programming commands
+    switch (abbreviation) {
+        case "flash":
+        case "eeprom":
+        case "fuses":
+        if (!hasProgrammer) {
+            return undefined;
         }
-        // Also need to set DUDE_SERIAL_RESET (for LEONARDO)
-        if (programmer.serials > 1) {
-            command = command + `DUDE_SERIAL_RESET=${target.serial} `;
-        }
-        allTasks.push(createTask(command + "flash", "Upload Flash", null, false));
-        if (programmer.canProgramEEPROM) {
-            allTasks.push(createTask(command + "eeprom", "Program EEPROM", null, false));
-        }
+        break;
+
+        default:
+        break;
+    }
+
+    // Prepare command based on request
+    switch (abbreviation) {
+        case "build":
+        case "clean":
+        return command + abbreviation;
+
+        case "clean-all-targets":
+        return `make clean-all -C "${makefileDir}"`;
+
+        case "flash":
+        return programmerCommand + "flash";
+
+        case "eeprom":
+        return (programmer.canProgramEEPROM ? programmerCommand + "eeprom" : undefined);
+
+        case "fuses":
         if (programmer.canProgramFuses && configuration.targetSetting(target.tag).fuses) {
             const fuses: config.Fuses = target.fuses;
-            command = command + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse} `;
-            allTasks.push(createTask(command + "fuses", "Program Fuses", null, false));
+            return programmerCommand + `HFUSE=${fuses.hfuse} LFUSE=${fuses.lfuse} EFUSE=${fuses.efuse} fuses`;
         }
+
+        default:
+        return undefined;
     }
-    return allTasks;
 }
 
-interface FastArduinoTaskDefinition extends vscode.TaskDefinition {
-    kind: string;
+// Utility to create base command line to call make with proper arguments
+function buildBaseCommand(makefileDir: string, target: config.Target): string {
+    const board: config.Board = target.board;
+    
+    let command: string = `make VARIANT=${board.variant} MCU=${board.mcu} F_CPU=${target.frequency} ARCH=${board.arch} -C "${makefileDir}" `;
+    let options: string = "";
+    if (target.defines) {
+        options = target.defines.map(value => "-D" + value).join(" ");
+    }
+    if (target.compilerOptions) {
+        options = options + " " + target.compilerOptions;
+    }
+    if (options) {
+        command = command + `ADDITIONAL_CXX_OPTIONS="${options}" `;
+    }
+    if (target.linkerOptions) {
+        command = command + `ADDITIONAL_LD_OPTIONS="${target.linkerOptions}" `;
+    }
+    return command;
 }
 
-function createTask(command: string, label: string, group: vscode.TaskGroup | null, matcher: boolean): vscode.Task {
-    // Create specific TaskDefinition
-    const definition: FastArduinoTaskDefinition = {
-        type: "FastArduino",
-        kind: label
-    };
-    // Create task invoking make command in the right directory and using the right problem matcher
-    //TODO use latest 1.17 Task API: not sure what to use as 2nd argument
-    // This shall probably change once multi workspace gets official in VSCode
-    let task = new vscode.Task( definition, 
-                                // vscode.TaskScope.Workspace,  // FAILS
-                                // vscode.TaskScope.Global,     // FAILS
-                                vscode.workspace.workspaceFolders[0],
-                                label, 
-                                "FastArduino", 
-                                new vscode.ShellExecution(command), 
-                                matcher ? ["$avrgcc"] : []);
-    // Also set group and presentation
-    if (group) {
-        task.group = group;
+// Utility to add programmer arguments to base make command
+function buildProgrammerCommand(command: string, target: config.Target): string {
+    const programmer: config.Programmer = target.programmer;
+    command = command + 
+        `DUDE_OPTION="${programmer.option}" CAN_PROGRAM_EEPROM=${programmer.canProgramEEPROM} CAN_PROGRAM_FUSES=${programmer.canProgramFuses} `;
+    if (target.serial) {
+        command = command + `DUDE_SERIAL=${target.serial} `;
     }
-    task.presentationOptions = {
-        echo: true, 
-        reveal: vscode.TaskRevealKind.Always, 
-        focus: false, 
-        panel: vscode.TaskPanelKind.Shared};
-    // NOTE I am not sure whether making it a background task is really useful
-    task.isBackground = true;
-    return task;
+    // Also need to set DUDE_SERIAL_RESET (for LEONARDO)
+    if (programmer.serials > 1) {
+        command = command + `DUDE_SERIAL_RESET=${target.serial} `;
+    }
+    return command;
 }
 
 // This function is called by user in order to set current target (board, frequency, programmer, serial device)
@@ -205,7 +332,7 @@ async function setTarget(context: vscode.ExtensionContext) {
         return {
             label: tag,
             description: targetDetails(tag)
-        }
+        };
     }));
     if (!selection) {
         return;

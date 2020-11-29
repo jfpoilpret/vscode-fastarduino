@@ -3,6 +3,11 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.8.0] - 2020-11-30
+- Updated to use VSCode 1.50 API and removed deprecated API calls
+- Refactored task provisioning in order to support fastarduino tasks in tasks.json
+- Removed output errors when using menu "Run Task..." and selecting "Show All Tasks..."
+
 ## [0.7.0] - 2019-12-29
 - Added support for USBtinyISP and ArduinoISPorg (old ArduinoISP, originally from arduino.org) programmers
 
