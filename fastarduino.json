@@ -45,6 +45,38 @@
 			"arch": "avr5"
 		},
 		{
+			"name": "ATmega164",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGAXX4P",
+			"mcu": "atmega164p",
+			"mcuDefine": "__AVR_ATmega164P__",
+			"arch": "avr5"
+		},
+		{
+			"name": "ATmega324",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGAXX4P",
+			"mcu": "atmega324p",
+			"mcuDefine": "__AVR_ATmega324P__",
+			"arch": "avr5"
+		},
+		{
+			"name": "ATmega644",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGAXX4P",
+			"mcu": "atmega644p",
+			"mcuDefine": "__AVR_ATmega644P__",
+			"arch": "avr5"
+		},
+		{
+			"name": "ATmega1284",
+			"frequencies": [8,16],
+			"variant": "BREADBOARD_ATMEGAXX4P",
+			"mcu": "atmega1284p",
+			"mcuDefine": "__AVR_ATmega1284P__",
+			"arch": "avr5"
+		},
+		{
 			"name": "ATtinyX4",
 			"frequencies": [8,16],
 			"variant": "BREADBOARD_ATTINYX4",

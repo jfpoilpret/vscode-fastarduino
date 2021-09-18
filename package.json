@@ -2,7 +2,7 @@
     "name": "fastarduino",
     "displayName": "FastArduino",
     "description": "FastArduino for Visual Studio Code",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "publisher": "jfpoilpret",
     "author": {
         "name": "Jean-Francois Poilpret"
@@ -100,6 +100,10 @@
                                     "Arduino LEONARDO",
                                     "Arduino MEGA",
                                     "ATmega328",
+                                    "ATmega164",
+                                    "ATmega324",
+                                    "ATmega644",
+                                    "ATmega1284",
                                     "ATtinyX4",
                                     "ATtinyX5"
                                 ]

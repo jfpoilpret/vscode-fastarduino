@@ -178,6 +178,10 @@ No issues have been reported sofar, but any problem or request for enhancement c
 
 ## Release Notes
 
+### 0.9.0
+
+- Added support for ATmega 164,324,644,1284 MCU
+
 ### 0.8.0
 
 - Updated to use VSCode 1.50 API and removed deprecated API calls

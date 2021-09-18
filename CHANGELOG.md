@@ -3,6 +3,9 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.9.0] - 2021-09-19
+- Added support for ATmega 164,324,644,1284 MCU
+
 ## [0.8.0] - 2020-11-30
 - Updated to use VSCode 1.50 API and removed deprecated API calls
 - Refactored task provisioning in order to support fastarduino tasks in tasks.json
