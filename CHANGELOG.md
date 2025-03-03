@@ -3,6 +3,9 @@ All notable changes to the "vscode-fastarduino" extension will be documented in 
 
 This file format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.10.0] - 2025-03-03
+- Added programer support for Arduino Nano new bootloader
+
 ## [0.9.0] - 2021-09-19
 - Added support for ATmega 164,324,644,1284 MCU
 

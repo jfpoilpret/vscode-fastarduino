@@ -104,6 +104,14 @@
 		},
 		{
 			"name": "NANO USB",
+			"option": "-c arduino -b 115200",
+			"serials": 1,
+			"canProgramEEPROM": true,
+			"canProgramFuses": true,
+			"onlyFor": "Arduino NANO"
+		},
+		{
+			"name": "NANO USB OLD",
 			"option": "-c arduino -b 57600",
 			"serials": 1,
 			"canProgramEEPROM": true,
